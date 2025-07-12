@@ -1,11 +1,10 @@
 import './App.css'
 import Swal from 'sweetalert2'
-import Header from './components/Header'
-import SectionImg from './components/SectionImg'
-import Footer from './components/SectionFooter'
-import FormRegistro from './components/FormRegistro'
-import BotonSecundary from './components/BotonSecundary'
 import PageRegistro from './components/PageRegistro'
+import { Routes, Route } from 'react-router-dom'
+import  Index  from './components'
+
+
 
 function App() {
   // const manejarClick = () => {
@@ -19,22 +18,28 @@ function App() {
   // }
 
   return (
-    <div> 
-      <Header/>
-      <section>
-        <SectionImg/>
-      </section>
-      <section>
-        <Footer/>
-      </section>
-      <section>
-      <PageRegistro/>
-        {/* <FormRegistro/> */}
-      </section>
-      {/* <BotonSecundary textoBtn="ola" onClick={() => Swal.fire('Hola', 'Has hecho clic en el botón', 'success')} /> */}
+    <>
+      <div>
+        <Routes>
+          <Route path='/' element={
+            <>
+              <Index/>
+            </>
+          }/>
 
-    </div>
-    
+          <Route path='/registro' element={
+            <>
+              <PageRegistro/>
+            </>
+          }
+          
+          />
+
+        </Routes>
+
+      </div>
+    </>
+
   )
 }
 
