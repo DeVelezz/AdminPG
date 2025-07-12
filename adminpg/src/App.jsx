@@ -1,8 +1,8 @@
-import './App.css'
-import Swal from 'sweetalert2'
-import PageRegistro from './components/PageRegistro'
-import { Routes, Route } from 'react-router-dom'
-import  Index  from './components'
+import './App.css';
+import Swal from 'sweetalert2';
+import PageRegistro from './components/PageRegistro';
+import { Routes, Route } from 'react-router-dom';
+import  Index  from './components/Index';
 
 
 

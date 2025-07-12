@@ -13,7 +13,8 @@ function PageRegistro() {
                 <div className="ml-2">
                     <Logo />
                 </div>
-                <div className="mr-2">
+                <div className="flex space-x-2">
+                    <BotonSecundary textoBtn="Inicio" onClick={()=> window.location.href="/"}/>
                     <BotonSecundary textoBtn="Iniciar sesión" onClick={() => window.location.href = "/login"} />
                 </div>
             </SectionHeader>

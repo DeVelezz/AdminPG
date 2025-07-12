@@ -3,12 +3,12 @@ import { Link } from "react-router-dom";
 import Logo from "./Logo";
 import ImgFondo from "./ImgFondo";
 import SectionHeader from "./SectionHeader";
-import SectionHeader from "./SectionHeader";
 import SectionImg from "./SectionImg";
 import imagen from '../../public/img/imagen.png'
+import SetionFooter from './SectionFooter'
 
 
-export function Index() {
+export default function Index() {
     return (
         <>
             <SectionHeader>
@@ -35,6 +35,8 @@ export function Index() {
                     </div>
                 </ImgFondo>
             </SectionImg>
+
+            <SetionFooter/>
         </>
     )
 }
