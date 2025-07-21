@@ -1,0 +1,5 @@
+# Evitar dependencias y archivos innecesarios
+node_modules/
+.env
+.DS_Store
+*.log
