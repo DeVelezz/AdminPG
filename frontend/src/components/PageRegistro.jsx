@@ -5,6 +5,8 @@ import SectionHeader from "./SectionHeader";
 import Logo from "./Logo";
 import BotonSecundary from "./BotonSecundary";
 import imagen from "../../public/img/imagen.png";
+import SectionFooter from "./SectionFooter";
+import SectionImg from "./SectionImg";
 
 function PageRegistro() {
     return (
@@ -14,7 +16,7 @@ function PageRegistro() {
                     <Logo />
                 </div>
                 <div className="flex space-x-2">
-                    <BotonSecundary textoBtn="Inicio" onClick={()=> window.location.href="/"}/>
+                    <BotonSecundary textoBtn="Inicio" onClick={() => window.location.href = "/"} />
                     <BotonSecundary textoBtn="Iniciar sesión" onClick={() => window.location.href = "/login"} />
                 </div>
             </SectionHeader>
@@ -25,6 +27,8 @@ function PageRegistro() {
                     <FormRegistro />
                 </div>
             </ImgFondo>
+
+            {/* <SectionFooter /> */}
         </>
     );
 }

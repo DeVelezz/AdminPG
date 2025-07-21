@@ -3,6 +3,7 @@ import Swal from 'sweetalert2';
 import PageRegistro from './components/PageRegistro';
 import { Routes, Route } from 'react-router-dom';
 import  Index  from './components/Index';
+import  PageLogin  from './components/PageLogin';
 
 
 
@@ -31,9 +32,13 @@ function App() {
             <>
               <PageRegistro/>
             </>
-          }
-          
-          />
+          }/>
+
+          <Route path='/login' element={
+            <>
+              <PageLogin/>
+            </>
+          }/>
 
         </Routes>
 
