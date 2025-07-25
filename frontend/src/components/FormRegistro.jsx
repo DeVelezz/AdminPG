@@ -1,7 +1,9 @@
-import React, { useState } from "react";
+import React, { use, useState } from "react";
 import Formulario from "./Form"; // tu componente
+import Swal from "sweetalert2";
+import useService from "../services/useService";
 
-function Registro() {
+export default function Registro(onSave, onCancel) {
     const [paso, setPaso] = useState(1);
     const [rolSeleccionado, setRolSeleccionado] = useState("");
     const [datosUsuario, setDatosUsuario] = useState({});
@@ -39,24 +41,42 @@ function Registro() {
         const datosCompletos = { ...datosUsuario, ...datosRol };
 
         // Aquí podrías hacer el fetch al backend
-        try {
-            const respuesta = await fetch("/api/auth/registro", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(datosCompletos)
-            });
+        const handleSubmit = async (e) => {
+            e.preventDefault();
 
-            const data = await respuesta.json();
-            if (respuesta.ok) {
-                alert("Registro exitoso ✅");
-            } else {
-                alert("Error: " + data.mensaje);
+            if(!datosCompletos.nombre || !datosCompletos.email || !datosCompletos.contraseña || !datosCompletos.rol) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Por favor completa todos los campos requeridos.',
+                    confirmButtonText: 'Aceptar',
+                    timer: 3000,
+                    timerProgressBar: true,
+                });
+                return;
             }
-        } catch (error) {
-            console.error(error);
-            alert("Error en el servidor");
+            try{
+                await useService.createUser(datosCompletos);
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Registro exitoso',
+                    text: 'Usuario registrado correctamente.',
+                    timer: 3000,
+                    timerProgressBar: true,
+                });
+                onSave(); // Llama a la función onSave pasada como prop
+            }
+            catch(error){
+                console.error("Error al registrar usuario:", error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error al registrar',
+                    text: error.response?.data?.message || "Error desconocido al registrar usuario",
+                    confirmButtonText: 'Aceptar',
+                    timer: 3000,
+                    timerProgressBar: true,
+                });
+            }
         }
     };
 
@@ -91,5 +111,3 @@ function Registro() {
         </div>
     );
 }
-
-export default Registro;
