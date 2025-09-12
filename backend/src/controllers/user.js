@@ -49,3 +49,7 @@ exports.createUser = async (req, res) => {
 
     }
 };
+
+exports.getAllUsers = async (req, res ) => {
+    // creo rama de Harlinson Oquendo
+}
