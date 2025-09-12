@@ -50,12 +50,87 @@ exports.createUser = async (req, res) => {
     }
 };
 
-exports.getAllUsers = async (req, res ) => {
+exports.getAllUsers = async (req, res) => {
     // creo rama de Harlinson Oquendo
-    try{
+    try {
+        // aca obtenemos todos los usuarios con su residente asociado
+        const { id } = req.params;
         const users = await Usuario.findAll({
             include: Residente
         })
-        res.status(200).json({ success: true, data: users });  
+        res.status(200).json({ success: true, data: users });
+    } catch (error) {
+
+        console.error("Error al obtener usuarios:", error);
+        res.status(500).json({ success: false, message: "Error al obtener usuarios", error });
     }
-}
+};
+
+// aca obtenemos todos los usuarios con su residente asociado
+exports.getUserById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = await Usuario.findByPk(id, {
+            include: Residente
+        });
+        if (!user) {
+            res.status(404).json({ success: false, message: "Usuario no encontrado" });
+            return;
+        }
+        res.status(200).json({ success: true, data: user });
+    } catch (error) {
+
+
+        console.error("Error al obtener usuario:", error);
+        res.status(500).json({ success: false, message: "Error al obtener usuario", error });
+    }
+};
+
+// aca actualizamos un usuario y su residente asociado
+exports.updateUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { nombre, email, contraseña, telefono, propiedad_id } = req.body;
+        const user = await Usuario.findByPk(id);
+        if (!user) {
+            res.status(404).json({ success: false, message: "Usuario no encontrado" });
+            return;
+        }
+        // actualizar campos del usuario
+        user.nombre = nombre || user.nombre;
+        user.email = email || user.email;
+        if (contraseña) {
+            user.contraseña = await bcrypt.hash(contraseña, 10);
+        }
+        await user.save();
+
+        // actualizar campos del residente asociado
+        const residente = await Residente.findOne({ where: { usuario_id: id } });
+        if (residente) {
+            residente.telefono = telefono || residente.telefono;
+            residente.propiedad_id = propiedad_id || residente.propiedad_id;
+            await residente.save();
+        }
+        res.status(200).json({ success: true, message: "Usuario actualizado exitosamente", data: { user, residente } });
+    } catch (error) {
+        console.error("Error al actualizar usuario:", error);
+        res.status(500).json({ success: false, message: "Error al actualizar usuario", error });
+    }
+};
+
+// aca eliminamos un usuario y su residente asociado
+exports.deleteUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = await Usuario.findByPk(id);
+        if (!user) {
+            res.status(404).json({ success: false, message: "Usuario no encontrado" });
+            return;
+        }
+        await user.destroy();
+        res.status(200).json({ success: true, message: "Usuario eliminado exitosamente" });
+    } catch (error) {
+        console.error("Error al eliminar usuario:", error);
+        res.status(500).json({ success: false, message: "Error al eliminar usuario", error });
+    }
+};
