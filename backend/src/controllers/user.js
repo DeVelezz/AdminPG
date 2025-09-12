@@ -52,4 +52,10 @@ exports.createUser = async (req, res) => {
 
 exports.getAllUsers = async (req, res ) => {
     // creo rama de Harlinson Oquendo
+    try{
+        const users = await Usuario.findAll({
+            include: Residente
+        })
+        res.status(200).json({ success: true, data: users });  
+    }
 }
