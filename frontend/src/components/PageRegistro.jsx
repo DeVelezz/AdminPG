@@ -24,7 +24,7 @@ function PageRegistro() {
             <ImgFondo>
                 <img src={imagen} alt="Imagen de fondo" className="w-full h-screen object-cover brightness-75" />
                 <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                    <FormRegistro />
+                    <FormRegistro onSave={()=>console.log('Registro exxitoso')} />
                 </div>
             </ImgFondo>
 

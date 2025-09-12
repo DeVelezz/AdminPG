@@ -35,7 +35,7 @@ const useService = {
     // Create a new user
     createUser: async (userData) => {
         try {
-            const response = await apiClient.post('/', userData); // Axios serializa automáticamente a JSON
+            const response = await apiClient.post('/registro', userData); // Axios serializa automáticamente a JSON
             return response.data;
         } catch (error) {
             console.error("Error creating user:", error);

@@ -5,8 +5,57 @@ import Logo from './Logo'
 import ImgFondo from './ImgFondo'
 import imagen from '../../public/img/imagen.png'
 import SectionFooter from './SectionFooter'
+import React, { useState } from 'react';
+import axios from 'axios';
+import Swal from 'sweetalert2';
+import Form from './Form';
 
-export default function PageLogin() {
+export default function PageLogin({ onLogin }) {
+
+    const campos = [
+        { nombre: "correo", label: "Correo", tipo: "email", placeholder: "Tu correo", requerido: true },
+        { nombre: "password", label: "Contraseña", tipo: "password", placeholder: "Tu contraseña", requerido: true }
+    ];
+
+    const { email, setEmail } = useState('');
+    const [contraseña, setContraseña] = useState('');
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+
+        try {
+            const res = await axios.post('http://localhost:3000/api/login', { email, contraseña });
+            localStorage.setItem('token', res.data.token);
+            localStorage.setItem('Usuario', JSON.stringify(res.data.usuario));
+
+            onLogin(res.data.usuario);
+
+        } catch (error) {
+            if (error === 'Usuario no encontrado') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de login',
+                    text: 'Usuario no encontrado',
+                    timer: 3000,
+                    timerProgressBar: true,
+                });
+            }
+
+            if (error === 'Faltan campos requeridos') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de login',
+                    text: 'Faltan campos requeridos',
+                    timer: 3000,
+                    timerProgressBar: true,
+                });
+            }
+
+            console.error(err.response?.data?.msg || "Error en login");
+        }
+
+    }
+
     return (
         <>
             <SectionHeader>
