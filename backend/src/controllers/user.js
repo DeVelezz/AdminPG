@@ -54,7 +54,6 @@ exports.getAllUsers = async (req, res) => {
     // creo rama de Harlinson Oquendo
     try {
         // aca obtenemos todos los usuarios con su residente asociado
-        const { id } = req.params;
         const users = await Usuario.findAll({
             include: Residente
         })

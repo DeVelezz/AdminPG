@@ -14,7 +14,7 @@ const apiClient = axios.create({
 const useService = {
     getUsers: async () => {
         try {
-            const response = await apiClient.get('/')
+            const response = await apiClient.get('/usuarios');
             return response.data
         } catch (error) {
             console.error("Error fetching users: ", error);
