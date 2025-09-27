@@ -73,12 +73,6 @@ function App() {
             </>
           }/>
 
-          <Route path='/residente' element={
-            <>
-              <PageResidente/>
-            </>
-          }/>
-
         </Routes>
 
       </div>

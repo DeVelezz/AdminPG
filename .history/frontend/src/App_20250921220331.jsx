@@ -72,12 +72,7 @@ function App() {
               <PageEditarUsuario/>
             </>
           }/>
-
-          <Route path='/residente' element={
-            <>
-              <PageResidente/>
-            </>
-          }/>
+          
 
         </Routes>
 

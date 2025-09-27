@@ -76,3 +76,4 @@ PageMora_backup.jsx
 
 # Package locks (opcional, depende de la preferencia del equipo)
 package-lock.json
+.history/

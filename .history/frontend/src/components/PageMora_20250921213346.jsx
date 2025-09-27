@@ -12,7 +12,7 @@ export default function PageMora() {
     const [residentesEnMora, setResidentesEnMora] = useState([]);
     const [loading, setLoading] = useState(true);
     const [paginaActual, setPaginaActual] = useState(1);
-    const RESIDENTES_POR_PAGINA = 10;
+    const RESIDENTES_POR_PAGINA = 5;
     const [showContactMenu, setShowContactMenu] = useState(null);
     const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
     const hoy = new Date();
@@ -53,27 +53,6 @@ export default function PageMora() {
                         },
                         {
                             key: 'demo3', nombre: 'María Rodríguez', torre: '3', apartamento: '303', concepto: 'Gas', monto: 35, fechaVencimiento: '2025-08-30', diasVencimiento: -22, estado: 'Pendiente', telefono: '321-555-0303', email: 'maria.rodriguez@email.com'
-                        },
-                        {
-                            key: 'demo4', nombre: 'Pedro Ramírez', torre: '1', apartamento: '102', concepto: 'Energía', monto: 75, fechaVencimiento: '2025-09-05', diasVencimiento: -16, estado: 'Pendiente', telefono: '321-555-0102', email: 'pedro@email.com'
-                        },
-                        {
-                            key: 'demo5', nombre: 'Ana Martínez', torre: '3', apartamento: '301', concepto: 'Energía', monto: 120, fechaVencimiento: '2025-09-01', diasVencimiento: -20, estado: 'Pendiente', telefono: '321-555-0301', email: 'ana@email.com'
-                        },
-                        {
-                            key: 'demo6', nombre: 'Luis Hernández', torre: '4', apartamento: '404', concepto: 'Cuota de mantenimiento', monto: 150, fechaVencimiento: '2025-08-15', diasVencimiento: -34, estado: 'Pendiente', telefono: '321-555-0404', email: 'luis@email.com'
-                        },
-                        {
-                            key: 'demo7', nombre: 'Sofía Torres', torre: '2', apartamento: '210', concepto: 'Gas', monto: 40, fechaVencimiento: '2025-09-12', diasVencimiento: -9, estado: 'Pendiente', telefono: '321-555-0210', email: 'sofia@email.com'
-                        },
-                        {
-                            key: 'demo8', nombre: 'Miguel Díaz', torre: '1', apartamento: '110', concepto: 'Agua', monto: 60, fechaVencimiento: '2025-09-08', diasVencimiento: -13, estado: 'Pendiente', telefono: '321-555-0110', email: 'miguel@email.com'
-                        },
-                        {
-                            key: 'demo9', nombre: 'Laura Gómez', torre: '3', apartamento: '320', concepto: 'Cuota de mantenimiento', monto: 80, fechaVencimiento: '2025-09-03', diasVencimiento: -18, estado: 'Pendiente', telefono: '321-555-0320', email: 'laura@email.com'
-                        },
-                        {
-                            key: 'demo10', nombre: 'Andrés Ruiz', torre: '2', apartamento: '215', concepto: 'Energía', monto: 95, fechaVencimiento: '2025-08-28', diasVencimiento: -24, estado: 'Pendiente', telefono: '321-555-0215', email: 'andres@email.com'
                         }
                     ];
                 }
@@ -91,27 +70,6 @@ export default function PageMora() {
                     },
                     {
                         key: 'demo3', nombre: 'María Rodríguez', torre: '3', apartamento: '303', concepto: 'Gas', monto: 35, fechaVencimiento: '2025-08-30', diasVencimiento: -22, estado: 'Pendiente', telefono: '321-555-0303', email: 'maria.rodriguez@email.com'
-                    },
-                    {
-                        key: 'demo4', nombre: 'Pedro Ramírez', torre: '1', apartamento: '102', concepto: 'Energía', monto: 75, fechaVencimiento: '2025-09-05', diasVencimiento: -16, estado: 'Pendiente', telefono: '321-555-0102', email: 'pedro@email.com'
-                    },
-                    {
-                        key: 'demo5', nombre: 'Ana Martínez', torre: '3', apartamento: '301', concepto: 'Energía', monto: 120, fechaVencimiento: '2025-09-01', diasVencimiento: -20, estado: 'Pendiente', telefono: '321-555-0301', email: 'ana@email.com'
-                    },
-                    {
-                        key: 'demo6', nombre: 'Luis Hernández', torre: '4', apartamento: '404', concepto: 'Cuota de mantenimiento', monto: 150, fechaVencimiento: '2025-08-15', diasVencimiento: -34, estado: 'Pendiente', telefono: '321-555-0404', email: 'luis@email.com'
-                    },
-                    {
-                        key: 'demo7', nombre: 'Sofía Torres', torre: '2', apartamento: '210', concepto: 'Gas', monto: 40, fechaVencimiento: '2025-09-12', diasVencimiento: -9, estado: 'Pendiente', telefono: '321-555-0210', email: 'sofia@email.com'
-                    },
-                    {
-                        key: 'demo8', nombre: 'Miguel Díaz', torre: '1', apartamento: '110', concepto: 'Agua', monto: 60, fechaVencimiento: '2025-09-08', diasVencimiento: -13, estado: 'Pendiente', telefono: '321-555-0110', email: 'miguel@email.com'
-                    },
-                    {
-                        key: 'demo9', nombre: 'Laura Gómez', torre: '3', apartamento: '320', concepto: 'Cuota de mantenimiento', monto: 80, fechaVencimiento: '2025-09-03', diasVencimiento: -18, estado: 'Pendiente', telefono: '321-555-0320', email: 'laura@email.com'
-                    },
-                    {
-                        key: 'demo10', nombre: 'Andrés Ruiz', torre: '2', apartamento: '215', concepto: 'Energía', monto: 95, fechaVencimiento: '2025-08-28', diasVencimiento: -24, estado: 'Pendiente', telefono: '321-555-0215', email: 'andres@email.com'
                     }
                 ]);
                 setLoading(false);
@@ -179,15 +137,15 @@ export default function PageMora() {
     );
 
     return (
-    <div className="min-h-screen flex flex-col relative" onClick={() => setShowContactMenu(null)}>
+        <div className="min-h-screen flex flex-col relative" onClick={() => setShowContactMenu(null)}>
             <SectionHeader>
                 <Logo />
                 <BotonSecundary textoBtn="Volver" onClick={() => window.location.href = "/admin"} />
             </SectionHeader>
-            <main className="flex-1 flex flex-col relative z-0">
+            <main className="flex-1 relative">
                 <ImgFondo>
-                    <img src="/img/imagen.png" alt="Imagen de fondo" className="w-full h-full object-cover brightness-75 absolute inset-0 z-0" />
-                    <div className="relative z-10 p-5 flex flex-col pb-8">
+                    <img src="/img/imagen.png" alt="Imagen de fondo" className="w-full h-full object-cover brightness-75 absolute inset-0" />
+                    <div className="relative z-10 p-5">
                         <div className="justify-between bg-white p-3 rounded-lg shadow-lg w-350 flex flex-row items-center">
                             <p className="font-bold text-blue-700 text-lg">RESIDENTES EN MORA</p>
                             <div className="flex gap-2 justify-between">
@@ -203,9 +161,8 @@ export default function PageMora() {
                                 ) : residentesEnMora.length === 0 ? (
                                     <div className="text-center py-8">No hay residentes en mora.</div>
                                 ) : (
-                                    <div className="overflow-x-auto flex-1">
-                                        <div className="overflow-x-auto overflow-y-auto max-h-[60vh] flex-1">
-                                            <table className="min-w-full bg-white border border-gray-200 rounded-lg">
+                                    <div className="overflow-x-auto">
+                                        <table className="min-w-full bg-white border border-gray-200 rounded-lg">
                                             <thead>
                                                 <tr className="bg-gray-100">
                                                     <th className="px-4 py-2">Nombre</th>
@@ -220,25 +177,7 @@ export default function PageMora() {
                                             </thead>
                                             <tbody>
                                                 {residentesPagina.map((residente) => (
-                                                    <tr 
-                                                        key={residente.key} 
-                                                        className={`border-t hover:bg-gray-50 cursor-pointer transition-colors ${residente.estado === "Pendiente" ? "bg-red-50" : ""}`}
-                                                        onClick={() => {
-                                                            const residenteData = {
-                                                                nombre: residente.nombre,
-                                                                apartamento: residente.apartamento,
-                                                                torre: residente.torre,
-                                                                telefono: residente.telefono,
-                                                                email: residente.email,
-                                                                concepto: residente.concepto,
-                                                                monto: residente.monto,
-                                                                fechaVencimiento: residente.fechaVencimiento,
-                                                                diasVencimiento: residente.diasVencimiento,
-                                                                estado: residente.estado
-                                                            };
-                                                            window.location.href = `/residente?fromMora=true&data=${encodeURIComponent(JSON.stringify(residenteData))}`;
-                                                        }}
-                                                    >
+                                                    <tr key={residente.key} className={`border-t hover:bg-gray-50 cursor-pointer transition-colors ${residente.estado === "Pendiente" ? "bg-red-50" : ""}`}>
                                                         <td className="px-4 py-2 font-semibold text-gray-700">{residente.nombre}</td>
                                                         <td className="px-4 py-2">{residente.torre}</td>
                                                         <td className="px-4 py-2">{residente.apartamento}</td>
@@ -265,9 +204,8 @@ export default function PageMora() {
                                                 ))}
                                             </tbody>
                                         </table>
-                                        </div>
                                         {/* Paginación */}
-                                        <div className="flex justify-center items-center mt-4 gap-2 mb-6">
+                                        <div className="flex justify-center items-center mt-4 gap-2">
                                             <button
                                                 className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
                                                 onClick={() => setPaginaActual(p => Math.max(1, p - 1))}

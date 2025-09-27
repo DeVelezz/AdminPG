@@ -220,25 +220,7 @@ export default function PageMora() {
                                             </thead>
                                             <tbody>
                                                 {residentesPagina.map((residente) => (
-                                                    <tr 
-                                                        key={residente.key} 
-                                                        className={`border-t hover:bg-gray-50 cursor-pointer transition-colors ${residente.estado === "Pendiente" ? "bg-red-50" : ""}`}
-                                                        onClick={() => {
-                                                            const residenteData = {
-                                                                nombre: residente.nombre,
-                                                                apartamento: residente.apartamento,
-                                                                torre: residente.torre,
-                                                                telefono: residente.telefono,
-                                                                email: residente.email,
-                                                                concepto: residente.concepto,
-                                                                monto: residente.monto,
-                                                                fechaVencimiento: residente.fechaVencimiento,
-                                                                diasVencimiento: residente.diasVencimiento,
-                                                                estado: residente.estado
-                                                            };
-                                                            window.location.href = `/residente?fromMora=true&data=${encodeURIComponent(JSON.stringify(residenteData))}`;
-                                                        }}
-                                                    >
+                                                    <tr key={residente.key} className={`border-t hover:bg-gray-50 cursor-pointer transition-colors ${residente.estado === "Pendiente" ? "bg-red-50" : ""}`}>
                                                         <td className="px-4 py-2 font-semibold text-gray-700">{residente.nombre}</td>
                                                         <td className="px-4 py-2">{residente.torre}</td>
                                                         <td className="px-4 py-2">{residente.apartamento}</td>

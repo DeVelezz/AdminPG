@@ -187,7 +187,7 @@ export default function PageMora() {
             <main className="flex-1 flex flex-col relative z-0">
                 <ImgFondo>
                     <img src="/img/imagen.png" alt="Imagen de fondo" className="w-full h-full object-cover brightness-75 absolute inset-0 z-0" />
-                    <div className="relative z-10 p-5 flex flex-col pb-8">
+                    <div className="relative z-10 p-5 flex flex-col min-h-[calc(100vh-120px)] pb-8">
                         <div className="justify-between bg-white p-3 rounded-lg shadow-lg w-350 flex flex-row items-center">
                             <p className="font-bold text-blue-700 text-lg">RESIDENTES EN MORA</p>
                             <div className="flex gap-2 justify-between">
@@ -196,8 +196,8 @@ export default function PageMora() {
                             </div>
                         </div>
                         {/* TABLA DE RESIDENTES EN MORA */}
-                        <div className="shadow-lg mt-6">
-                            <div className="bg-white shadow-lg rounded">
+                        <div className="shadow-lg mt-6 flex-1 flex flex-col">
+                            <div className="bg-white shadow-lg rounded flex-1 flex flex-col">
                                 {loading ? (
                                     <div className="text-center py-8">Cargando datos...</div>
                                 ) : residentesEnMora.length === 0 ? (
@@ -220,25 +220,7 @@ export default function PageMora() {
                                             </thead>
                                             <tbody>
                                                 {residentesPagina.map((residente) => (
-                                                    <tr 
-                                                        key={residente.key} 
-                                                        className={`border-t hover:bg-gray-50 cursor-pointer transition-colors ${residente.estado === "Pendiente" ? "bg-red-50" : ""}`}
-                                                        onClick={() => {
-                                                            const residenteData = {
-                                                                nombre: residente.nombre,
-                                                                apartamento: residente.apartamento,
-                                                                torre: residente.torre,
-                                                                telefono: residente.telefono,
-                                                                email: residente.email,
-                                                                concepto: residente.concepto,
-                                                                monto: residente.monto,
-                                                                fechaVencimiento: residente.fechaVencimiento,
-                                                                diasVencimiento: residente.diasVencimiento,
-                                                                estado: residente.estado
-                                                            };
-                                                            window.location.href = `/residente?fromMora=true&data=${encodeURIComponent(JSON.stringify(residenteData))}`;
-                                                        }}
-                                                    >
+                                                    <tr key={residente.key} className={`border-t hover:bg-gray-50 cursor-pointer transition-colors ${residente.estado === "Pendiente" ? "bg-red-50" : ""}`}>
                                                         <td className="px-4 py-2 font-semibold text-gray-700">{residente.nombre}</td>
                                                         <td className="px-4 py-2">{residente.torre}</td>
                                                         <td className="px-4 py-2">{residente.apartamento}</td>
