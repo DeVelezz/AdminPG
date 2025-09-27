@@ -12,7 +12,7 @@ export default function PageMora() {
     const [residentesEnMora, setResidentesEnMora] = useState([]);
     const [loading, setLoading] = useState(true);
     const [paginaActual, setPaginaActual] = useState(1);
-    const RESIDENTES_POR_PAGINA = 10;
+    const RESIDENTES_POR_PAGINA = 15;
     const [showContactMenu, setShowContactMenu] = useState(null);
     const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
     const hoy = new Date();
@@ -180,21 +180,25 @@ export default function PageMora() {
 
     return (
     <div className="min-h-screen flex flex-col relative" onClick={() => setShowContactMenu(null)}>
+                <ImgFondo>
+                    <img src="/img/imagen.png" alt="Imagen de fondo" className="w-full h-full object-cover brightness-75 absolute inset-0 z-0" />
+                </ImgFondo>
+
             <SectionHeader>
                 <Logo />
                 <BotonSecundary textoBtn="Volver" onClick={() => window.location.href = "/admin"} />
             </SectionHeader>
             <main className="flex-1 flex flex-col relative z-0">
-                <ImgFondo>
-                    <img src="/img/imagen.png" alt="Imagen de fondo" className="w-full h-full object-cover brightness-75 absolute inset-0 z-0" />
                     <div className="relative z-10 p-5 flex flex-col pb-8">
-                        <div className="justify-between bg-white p-3 rounded-lg shadow-lg w-350 flex flex-row items-center">
-                            <p className="font-bold text-blue-700 text-lg">RESIDENTES EN MORA</p>
-                            <div className="flex gap-2 justify-between">
+                       
+                        <div className="bg-transparent py-3 rounded-lg flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 ">
+                            <p className="text-white font-bold text-lg sm:text-xl">RESIDENTES EN MORA</p>
+                            <div className="flex flex-col sm:flex-row gap-2">
                                 <BotonSecundary textoBtn="Enviar notificación" onClick={() => alert("Notificación enviada")} />
                                 <BotonSecundary textoBtn="Generar reporte" onClick={() => alert("Generando reporte...")} />
                             </div>
                         </div>
+
                         {/* TABLA DE RESIDENTES EN MORA */}
                         <div className="shadow-lg mt-6">
                             <div className="bg-white shadow-lg rounded">
@@ -204,8 +208,8 @@ export default function PageMora() {
                                     <div className="text-center py-8">No hay residentes en mora.</div>
                                 ) : (
                                     <div className="overflow-x-auto flex-1">
-                                        <div className="overflow-x-auto overflow-y-auto max-h-[60vh] flex-1">
-                                            <table className="min-w-full bg-white border border-gray-200 rounded-lg">
+                                        <div className="overflow-x-auto rounded-lg border-gray-300 border shadow-lg p-2">
+                                            <table className="w-full bg-white rounded">
                                             <thead>
                                                 <tr className="bg-gray-100">
                                                     <th className="px-4 py-2">Nombre</th>
@@ -222,7 +226,7 @@ export default function PageMora() {
                                                 {residentesPagina.map((residente) => (
                                                     <tr 
                                                         key={residente.key} 
-                                                        className={`border-t hover:bg-gray-50 cursor-pointer transition-colors ${residente.estado === "Pendiente" ? "bg-red-50" : ""}`}
+                                                        className={`hover:bg-gray-50 cursor-pointer transition-colors ${residente.estado === "Pendiente" ? "bg-red-50" : ""}`}
                                                         onClick={() => {
                                                             const residenteData = {
                                                                 nombre: residente.nombre,
@@ -285,7 +289,6 @@ export default function PageMora() {
                             </div>
                         </div>
                     </div>
-                </ImgFondo>
             </main>
             <SectionFooter />
         </div>

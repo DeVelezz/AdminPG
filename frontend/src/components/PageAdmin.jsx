@@ -138,7 +138,7 @@ export default function PageAdmin() {
     
     // Estados para paginación y filtros
     const [currentPage, setCurrentPage] = useState(1);
-    const [usersPerPage] = useState(5); // Usuarios por página
+    const [usersPerPage] = useState(10); // Usuarios por página
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('todos');
     const [filterTower, setFilterTower] = useState('todas');
@@ -310,24 +310,28 @@ export default function PageAdmin() {
     };
 
     return (
-        <div className="w-full flex flex-col">
-            {/* HEADER */}
-            <SectionHeader>
-                <Logo />
-                <BotonSecundary textoBtn="Cerrar sesión" onClick={() => window.location.href = "/login"} />
-            </SectionHeader>
-
-            <main className="wflux relative">
+        <div className="w-full flex flex-col min-h-screen relative">
                 <ImgFondo>
                     <img
                         src="/img/imagen.png"
                         alt="Imagen de fondo"
                         className="w-full h-full object-cover brightness-75 absolute inset-0"
                     />
+                </ImgFondo>
+            {/* HEADER */}
+            <SectionHeader>
+                <div className="max-w-[1450px] mx-auto flex justify-between items-center w-full px-4">
+                <Logo />
+                <BotonSecundary textoBtn="Cerrar sesión" onClick={() => window.location.href = "/login"} />
+                </div>
 
-                    <div className="relative px-4 sm:px-5 pt-24 pb-20">
+            </SectionHeader>
+
+            <main className="h-full relative pb-2.5">
+
+                    <div className="relative px- sm:px-5 pt-2 max-w-[1450px] mx-auto h-full">
                         {/* HEADER CON RESPONSIVE */}
-                        <div className="bg-transparent p-3 rounded-lg flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                        <div className="bg-transparent py-3 rounded-lg flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 ">
                             <p className="text-white font-bold text-lg sm:text-xl">¡BIENVENIDO ADMIN!</p>
                             <div className="flex flex-col sm:flex-row gap-2">
                                 <BotonSecundary textoBtn="Editar perfil" onClick={() => window.location.href = "/actualizar"} />
@@ -339,7 +343,7 @@ export default function PageAdmin() {
                         <div className="shadow-lg mt-6">
                             <div className="bg-white shadow-lg rounded">
                                 {/* HEADER DE TABLA CON ACCIONES */}
-                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center px-4 py-3 border-b gap-3">
+                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center px-4 py-3 gap-3">
                                     <span className="font-bold text-lg text-gray-800">
                                         Información de los residentes ({filteredUsers.length})
                                     </span>
@@ -352,7 +356,7 @@ export default function PageAdmin() {
                                 </div>
 
                                 {/* FILTROS Y BÚSQUEDA */}
-                                <div className="bg-gray-50 p-4 border-b">
+                                <div className="bg-gray-50 p-4">
                                     <div className="flex flex-col lg:flex-row gap-4">
                                         {/* Búsqueda */}
                                         <div className="flex-1">
@@ -415,8 +419,8 @@ export default function PageAdmin() {
                                     ) : (
                                         <div>
                                             {/* TABLA RESPONSIVE */}
-                                            <div className="overflow-x-auto">
-                                                <table className="w-full bg-white border rounded shadow">
+                                            <div className="overflow-x-auto rounded-lg border-gray-300 border shadow-lg p-2">
+                                                <table className="w-full bg-white   rounded ">
                                                     <thead className="bg-gray-200 text-gray-700">
                                                         <tr>
                                                             <th className="px-4 py-2 text-left">ID Usuario</th>
@@ -438,7 +442,7 @@ export default function PageAdmin() {
                                                         ) : currentUsers.map((user) => (
                                                             <tr 
                                                                 key={`${user.id}-${user.nombre}`}
-                                                                className={`border-t cursor-pointer transition-colors hover:bg-blue-50 ${
+                                                                className={` cursor-pointer transition-colors hover:bg-blue-50 ${
                                                                     selectedUsers.includes(user.id) ? 'bg-blue-200' : getRowBackgroundColor(user.estado)
                                                                 }`}
                                                                 onClick={() => handleRowClick(user.id)}
@@ -449,7 +453,7 @@ export default function PageAdmin() {
                                                                 <td className="px-4 py-2">{user.torre}</td>
                                                                 <td className="px-4 py-2">{user.apartamento}</td>
                                                                 <td className="px-4 py-2">
-                                                                    <span className={`text-xs px-2 py-1 rounded ${getBadgeColors(user.estado)}`}>
+                                                                    <span className={`text-xs px-2 py-1 rounded w-20 flex justify-center ${getBadgeColors(user.estado)}`}>
                                                                         {user.estado}
                                                                     </span>
                                                                 </td>
@@ -541,11 +545,8 @@ export default function PageAdmin() {
                             </div>
                         </div>
                     </div>
-                </ImgFondo>
             </main>
 
-            {/* FOOTER */}
-            <SectionFooter />
         </div>
     );
 }
