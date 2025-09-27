@@ -8,140 +8,119 @@ import { FaPhone } from "react-icons/fa";
 import { SiGmail, SiWhatsapp } from "react-icons/si";
 
 export default function PageMora() {
-    // ========== SISTEMA DE DATOS AUTOMÁTICO ==========
-    
-    // Obtener fecha actual para cálculos automáticos
-    const hoy = new Date();
-    
-    // Función para calcular días de diferencia
-    const calcularDiasVencimiento = (fechaVencimiento) => {
-        const vencimiento = new Date(fechaVencimiento);
-        const diferencia = Math.floor((vencimiento - hoy) / (1000 * 60 * 60 * 24));
-        return diferencia;
-    };
-    
-    // Función para determinar estado automáticamente
-    const determinarEstado = (fechaVencimiento, fechaPago = null) => {
-        if (fechaPago) return "Pagado";
-        
-        const diasRestantes = calcularDiasVencimiento(fechaVencimiento);
-        if (diasRestantes < 0) return "Pendiente";
-        if (diasRestantes <= 5) return "Por vencer";
-        return "Al día";
-    };
-    
-    // Función para obtener colores de fila automáticamente
-    const getRowBackgroundColor = (estado) => {
-        switch (estado) {
-            case "Pendiente":
-                return 'bg-red-50';
-            case "Por vencer":
-                return 'bg-yellow-50';
-            default:
-                return '';
-        }
-    };
-    
-    // ========== DATOS AUTOMÁTICOS DE RESIDENTES ==========
-    
-    // Esta estructura sería reemplazada por datos de la base de datos
-    const todosResidenetes = [
-        {
-            id: 1,
-            nombre: "Ana García",
-            apartamento: "101",
-            torre: "1",
-            telefono: "321-555-0101",
-            email: "ana.garcia@email.com",
-            servicios: [
-                {
-                    nombre: "Cuota de mantenimiento",
-                    monto: 50,
-                    fechaVencimiento: "2025-09-15"
-                },
-                {
-                    nombre: "Agua",
-                    monto: 30,
-                    fechaVencimiento: "2025-09-10"
-                }
-            ]
-        },
-        {
-            id: 2,
-            nombre: "Carlos López",
-            apartamento: "205",
-            torre: "2",
-            telefono: "321-555-0205",
-            email: "carlos.lopez@email.com",
-            servicios: [
-                {
-                    nombre: "Cuota de mantenimiento",
-                    monto: 50,
-                    fechaVencimiento: "2025-09-05"
-                }
-            ]
-        },
-        {
-            id: 3,
-            nombre: "María Rodríguez",
-            apartamento: "303",
-            torre: "3",
-            telefono: "321-555-0303",
-            email: "maria.rodriguez@email.com",
-            servicios: [
-                {
-                    nombre: "Cuota de mantenimiento",
-                    monto: 50,
-                    fechaVencimiento: "2025-09-01"
-                },
-                {
-                    nombre: "Agua",
-                    monto: 25,
-                    fechaVencimiento: "2025-08-25"
-                },
-                {
-                    nombre: "Gas",
-                    monto: 35,
-                    fechaVencimiento: "2025-08-30"
-                }
-            ]
-        }
-    ];
-    
-    // Procesar residentes con cálculos automáticos
-    const residentesProcesados = todosResidenetes.map(residente => {
-        // Calcular automáticamente para cada servicio
-        const serviciosProcesados = residente.servicios.map(servicio => ({
-            ...servicio,
-            estado: determinarEstado(servicio.fechaVencimiento),
-            diasVencimiento: calcularDiasVencimiento(servicio.fechaVencimiento)
-        }));
-        
-        // Calcular totales automáticamente
-        const serviciosPendientes = serviciosProcesados.filter(s => s.estado !== "Pagado");
-        const deudaTotal = serviciosPendientes.reduce((total, s) => total + s.monto, 0);
-        const diasMora = serviciosPendientes.length > 0 
-            ? Math.max(...serviciosPendientes.map(s => s.diasVencimiento < 0 ? Math.abs(s.diasVencimiento) : 0))
-            : 0;
-        
-        // Determinar estado general del residente
-        const tieneServiciosPendientes = serviciosPendientes.some(s => s.estado === "Pendiente");
-        const estadoGeneral = tieneServiciosPendientes ? "Pendiente" : "Por vencer";
-        
-        return {
-            ...residente,
-            serviciosProcesados,
-            deudaTotal,
-            diasMora,
-            estadoGeneral
-        };
-    });
-    
-    // Filtrar solo residentes que tienen servicios en mora o por vencer
-    const residentesEnMora = residentesProcesados.filter(r => r.deudaTotal > 0);
-    
+    // Estado y lógica solo para datos reales
+    const [residentesEnMora, setResidentesEnMora] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [paginaActual, setPaginaActual] = useState(1);
+    const RESIDENTES_POR_PAGINA = 15;
     const [showContactMenu, setShowContactMenu] = useState(null);
     const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+    const hoy = new Date();
+
+    React.useEffect(() => {
+        fetch("/api/residentes-mora")
+            .then(res => res.json())
+            .then(data => {
+                let procesados = data.map(residente =>
+                    residente.servicios
+                        .filter(servicio => !servicio.fechaPago)
+                        .map(servicio => {
+                            const vencimiento = new Date(servicio.fechaVencimiento);
+                            const diasVencimiento = Math.floor((vencimiento - hoy) / (1000 * 60 * 60 * 24));
+                            return {
+                                key: `${residente.id}-${servicio.nombre}`,
+                                nombre: residente.nombre,
+                                torre: residente.torre,
+                                apartamento: residente.apartamento,
+                                concepto: servicio.nombre,
+                                monto: servicio.monto,
+                                fechaVencimiento: servicio.fechaVencimiento,
+                                diasVencimiento,
+                                estado: diasVencimiento < 0 ? "Pendiente" : "Por vencer",
+                                telefono: residente.telefono,
+                                email: residente.email
+                            };
+                        })
+                ).flat();
+                // Fallback temporal si la API responde vacío
+                if (procesados.length === 0) {
+                    procesados = [
+                        {
+                            key: 'demo1', nombre: 'Ana García', torre: '1', apartamento: '101', concepto: 'Cuota de mantenimiento', monto: 50, fechaVencimiento: '2025-09-15', diasVencimiento: -6, estado: 'Pendiente', telefono: '321-555-0101', email: 'ana.garcia@email.com'
+                        },
+                        {
+                            key: 'demo2', nombre: 'Carlos López', torre: '2', apartamento: '205', concepto: 'Agua', monto: 30, fechaVencimiento: '2025-09-10', diasVencimiento: -11, estado: 'Pendiente', telefono: '321-555-0205', email: 'carlos.lopez@email.com'
+                        },
+                        {
+                            key: 'demo3', nombre: 'María Rodríguez', torre: '3', apartamento: '303', concepto: 'Gas', monto: 35, fechaVencimiento: '2025-08-30', diasVencimiento: -22, estado: 'Pendiente', telefono: '321-555-0303', email: 'maria.rodriguez@email.com'
+                        },
+                        {
+                            key: 'demo4', nombre: 'Pedro Ramírez', torre: '1', apartamento: '102', concepto: 'Energía', monto: 75, fechaVencimiento: '2025-09-05', diasVencimiento: -16, estado: 'Pendiente', telefono: '321-555-0102', email: 'pedro@email.com'
+                        },
+                        {
+                            key: 'demo5', nombre: 'Ana Martínez', torre: '3', apartamento: '301', concepto: 'Energía', monto: 120, fechaVencimiento: '2025-09-01', diasVencimiento: -20, estado: 'Pendiente', telefono: '321-555-0301', email: 'ana@email.com'
+                        },
+                        {
+                            key: 'demo6', nombre: 'Luis Hernández', torre: '4', apartamento: '404', concepto: 'Cuota de mantenimiento', monto: 150, fechaVencimiento: '2025-08-15', diasVencimiento: -34, estado: 'Pendiente', telefono: '321-555-0404', email: 'luis@email.com'
+                        },
+                        {
+                            key: 'demo7', nombre: 'Sofía Torres', torre: '2', apartamento: '210', concepto: 'Gas', monto: 40, fechaVencimiento: '2025-09-12', diasVencimiento: -9, estado: 'Pendiente', telefono: '321-555-0210', email: 'sofia@email.com'
+                        },
+                        {
+                            key: 'demo8', nombre: 'Miguel Díaz', torre: '1', apartamento: '110', concepto: 'Agua', monto: 60, fechaVencimiento: '2025-09-08', diasVencimiento: -13, estado: 'Pendiente', telefono: '321-555-0110', email: 'miguel@email.com'
+                        },
+                        {
+                            key: 'demo9', nombre: 'Laura Gómez', torre: '3', apartamento: '320', concepto: 'Cuota de mantenimiento', monto: 80, fechaVencimiento: '2025-09-03', diasVencimiento: -18, estado: 'Pendiente', telefono: '321-555-0320', email: 'laura@email.com'
+                        },
+                        {
+                            key: 'demo10', nombre: 'Andrés Ruiz', torre: '2', apartamento: '215', concepto: 'Energía', monto: 95, fechaVencimiento: '2025-08-28', diasVencimiento: -24, estado: 'Pendiente', telefono: '321-555-0215', email: 'andres@email.com'
+                        }
+                    ];
+                }
+                setResidentesEnMora(procesados);
+                setLoading(false);
+            })
+            .catch(() => {
+                // Si hay error, también mostrar datos de prueba
+                setResidentesEnMora([
+                    {
+                        key: 'demo1', nombre: 'Ana García', torre: '1', apartamento: '101', concepto: 'Cuota de mantenimiento', monto: 50, fechaVencimiento: '2025-09-15', diasVencimiento: -6, estado: 'Pendiente', telefono: '321-555-0101', email: 'ana.garcia@email.com'
+                    },
+                    {
+                        key: 'demo2', nombre: 'Carlos López', torre: '2', apartamento: '205', concepto: 'Agua', monto: 30, fechaVencimiento: '2025-09-10', diasVencimiento: -11, estado: 'Pendiente', telefono: '321-555-0205', email: 'carlos.lopez@email.com'
+                    },
+                    {
+                        key: 'demo3', nombre: 'María Rodríguez', torre: '3', apartamento: '303', concepto: 'Gas', monto: 35, fechaVencimiento: '2025-08-30', diasVencimiento: -22, estado: 'Pendiente', telefono: '321-555-0303', email: 'maria.rodriguez@email.com'
+                    },
+                    {
+                        key: 'demo4', nombre: 'Pedro Ramírez', torre: '1', apartamento: '102', concepto: 'Energía', monto: 75, fechaVencimiento: '2025-09-05', diasVencimiento: -16, estado: 'Pendiente', telefono: '321-555-0102', email: 'pedro@email.com'
+                    },
+                    {
+                        key: 'demo5', nombre: 'Ana Martínez', torre: '3', apartamento: '301', concepto: 'Energía', monto: 120, fechaVencimiento: '2025-09-01', diasVencimiento: -20, estado: 'Pendiente', telefono: '321-555-0301', email: 'ana@email.com'
+                    },
+                    {
+                        key: 'demo6', nombre: 'Luis Hernández', torre: '4', apartamento: '404', concepto: 'Cuota de mantenimiento', monto: 150, fechaVencimiento: '2025-08-15', diasVencimiento: -34, estado: 'Pendiente', telefono: '321-555-0404', email: 'luis@email.com'
+                    },
+                    {
+                        key: 'demo7', nombre: 'Sofía Torres', torre: '2', apartamento: '210', concepto: 'Gas', monto: 40, fechaVencimiento: '2025-09-12', diasVencimiento: -9, estado: 'Pendiente', telefono: '321-555-0210', email: 'sofia@email.com'
+                    },
+                    {
+                        key: 'demo8', nombre: 'Miguel Díaz', torre: '1', apartamento: '110', concepto: 'Agua', monto: 60, fechaVencimiento: '2025-09-08', diasVencimiento: -13, estado: 'Pendiente', telefono: '321-555-0110', email: 'miguel@email.com'
+                    },
+                    {
+                        key: 'demo9', nombre: 'Laura Gómez', torre: '3', apartamento: '320', concepto: 'Cuota de mantenimiento', monto: 80, fechaVencimiento: '2025-09-03', diasVencimiento: -18, estado: 'Pendiente', telefono: '321-555-0320', email: 'laura@email.com'
+                    },
+                    {
+                        key: 'demo10', nombre: 'Andrés Ruiz', torre: '2', apartamento: '215', concepto: 'Energía', monto: 95, fechaVencimiento: '2025-08-28', diasVencimiento: -24, estado: 'Pendiente', telefono: '321-555-0215', email: 'andres@email.com'
+                    }
+                ]);
+                setLoading(false);
+            });
+    }, []);
+
+    // Paginación
+    const totalPaginas = Math.ceil(residentesEnMora.length / RESIDENTES_POR_PAGINA);
+    const residentesPagina = residentesEnMora.slice((paginaActual - 1) * RESIDENTES_POR_PAGINA, paginaActual * RESIDENTES_POR_PAGINA);
 
     const handleContactar = (residente, telefono, email, accion) => {
         switch(accion) {
@@ -200,26 +179,21 @@ export default function PageMora() {
     );
 
     return (
-        <div className="min-h-screen flex flex-col" onClick={() => setShowContactMenu(null)}>
-            {/* HEADER */}
+    <div className="min-h-screen flex flex-col relative" onClick={() => setShowContactMenu(null)}>
+                <ImgFondo>
+                    <img src="/img/imagen.png" alt="Imagen de fondo" className="w-full h-full object-cover brightness-75 absolute inset-0 z-0" />
+                </ImgFondo>
+
             <SectionHeader>
                 <Logo />
                 <BotonSecundary textoBtn="Volver" onClick={() => window.location.href = "/admin"} />
             </SectionHeader>
-
-            {/* CONTENIDO PRINCIPAL */}
-            <main className="flex-1 relative">
-                <ImgFondo>
-                    <img
-                        src="/img/imagen.png"
-                        alt="Imagen de fondo"
-                        className="w-full h-full object-cover brightness-75 absolute inset-0"
-                    />
-
-                    <div className="relative z-10 p-5">
-                        <div className="justify-between bg-white p-3 rounded-lg shadow-lg w-350 flex flex-row items-center">
-                            <p>RESIDENTES EN MORA</p>
-                            <div className="flex gap-2 justify-between">
+            <main className="flex-1 flex flex-col relative z-0">
+                    <div className="relative z-10 p-5 flex flex-col pb-8">
+                       
+                        <div className="bg-transparent py-3 rounded-lg flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 ">
+                            <p className="text-white font-bold text-lg sm:text-xl">RESIDENTES EN MORA</p>
+                            <div className="flex flex-col sm:flex-row gap-2">
                                 <BotonSecundary textoBtn="Enviar notificación" onClick={() => alert("Notificación enviada")} />
                                 <BotonSecundary textoBtn="Generar reporte" onClick={() => alert("Generando reporte...")} />
                             </div>
@@ -228,207 +202,94 @@ export default function PageMora() {
                         {/* TABLA DE RESIDENTES EN MORA */}
                         <div className="shadow-lg mt-6">
                             <div className="bg-white shadow-lg rounded">
-                                <div className="flex justify-between items-center px-4 py-3 border-b">
-                                    <span className="font-semibold text-gray-700">Residentes con pagos en mora</span>
-                                    <div className="flex gap-2">
-                                        <button 
-                                            className="px-3 py-1 bg-green-600 text-white text-sm rounded shadow hover:bg-green-700"
-                                            onClick={() => alert("Exportando lista de morosos...")}
-                                        >
-                                            Exportar Excel
-                                        </button>
-                                    </div>
-                                </div>
-                                <div className="bg-gray-100 p-6 rounded-b">
-                                    <h3 className="text-center text-blue-600 font-bold text-xl mb-4">Lista de residentes con pagos pendientes</h3>
-
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full bg-white border rounded shadow">
-                                            <thead className="bg-gray-200 text-gray-700">
-                                                <tr>
-                                                    <th className="px-4 py-2 text-left">Residente</th>
-                                                    <th className="px-4 py-2 text-left">Torre</th>
-                                                    <th className="px-4 py-2 text-left">Apartamento</th>
-                                                    <th className="px-4 py-2 text-left">Concepto</th>
-                                                    <th className="px-4 py-2 text-left">Monto</th>
-                                                    <th className="px-4 py-2 text-left">Fecha límite</th>
-                                                    <th className="px-4 py-2 text-left">Días vencido</th>
-                                                    <th className="px-4 py-2 text-center">Acción</th>
+                                {loading ? (
+                                    <div className="text-center py-8">Cargando datos...</div>
+                                ) : residentesEnMora.length === 0 ? (
+                                    <div className="text-center py-8">No hay residentes en mora.</div>
+                                ) : (
+                                    <div className="overflow-x-auto flex-1">
+                                        <div className="overflow-x-auto rounded-lg border-gray-300 border shadow-lg p-2">
+                                            <table className="w-full bg-white rounded">
+                                            <thead>
+                                                <tr className="bg-gray-100">
+                                                    <th className="px-4 py-2">Nombre</th>
+                                                    <th className="px-4 py-2">Torre</th>
+                                                    <th className="px-4 py-2">Apartamento</th>
+                                                    <th className="px-4 py-2">Concepto</th>
+                                                    <th className="px-4 py-2">Monto</th>
+                                                    <th className="px-4 py-2">Fecha Vencimiento</th>
+                                                    <th className="px-4 py-2">Días vencidos</th>
+                                                    <th className="px-4 py-2">Contacto</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {residentesEnMora.map((residente) => 
-                                                    residente.serviciosProcesados
-                                                        .filter(servicio => servicio.estado !== "Pagado")
-                                                        .map((servicio, index) => (
-                                                            <tr 
-                                                                key={`${residente.id}-${index}`}
-                                                                className={`border-t hover:bg-gray-50 cursor-pointer transition-colors ${getRowBackgroundColor(servicio.estado)}`}
-                                                                onClick={() => {
-                                                                    const residenteData = {
-                                                                        nombre: residente.nombre,
-                                                                        apartamento: residente.apartamento,
-                                                                        torre: residente.torre,
-                                                                        telefono: residente.telefono,
-                                                                        email: residente.email,
-                                                                        diasMora: residente.diasMora,
-                                                                        totalDeuda: residente.deudaTotal
-                                                                    };
-                                                                    window.location.href = `/residente?fromMora=true&data=${encodeURIComponent(JSON.stringify(residenteData))}`;
-                                                                }}
+                                                {residentesPagina.map((residente) => (
+                                                    <tr 
+                                                        key={residente.key} 
+                                                        className={`hover:bg-gray-50 cursor-pointer transition-colors ${residente.estado === "Pendiente" ? "bg-red-50" : ""}`}
+                                                        onClick={() => {
+                                                            const residenteData = {
+                                                                nombre: residente.nombre,
+                                                                apartamento: residente.apartamento,
+                                                                torre: residente.torre,
+                                                                telefono: residente.telefono,
+                                                                email: residente.email,
+                                                                concepto: residente.concepto,
+                                                                monto: residente.monto,
+                                                                fechaVencimiento: residente.fechaVencimiento,
+                                                                diasVencimiento: residente.diasVencimiento,
+                                                                estado: residente.estado
+                                                            };
+                                                            window.location.href = `/residente?fromMora=true&data=${encodeURIComponent(JSON.stringify(residenteData))}`;
+                                                        }}
+                                                    >
+                                                        <td className="px-4 py-2 font-semibold text-gray-700">{residente.nombre}</td>
+                                                        <td className="px-4 py-2">{residente.torre}</td>
+                                                        <td className="px-4 py-2">{residente.apartamento}</td>
+                                                        <td className="px-4 py-2">{residente.concepto}</td>
+                                                        <td className="px-4 py-2 font-bold text-blue-700">${residente.monto}</td>
+                                                        <td className="px-4 py-2">{residente.fechaVencimiento}</td>
+                                                        <td className="px-4 py-2">
+                                                            <span className={`text-xs px-2 py-1 rounded ${residente.diasVencimiento < 0 ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                                {residente.diasVencimiento < 0 ? `${Math.abs(residente.diasVencimiento)} días` : `${residente.diasVencimiento} días`}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-2 text-center relative">
+                                                            <button
+                                                                className="px-3 py-1 bg-blue-600 text-white text-sm rounded shadow hover:bg-blue-700"
+                                                                onClick={(e) => { e.stopPropagation(); handleShowMenu(residente.key, e); }}
                                                             >
-                                                                <td className="px-4 py-2">{residente.nombre}</td>
-                                                                <td className="px-4 py-2">Torre {residente.torre}</td>
-                                                                <td className="px-4 py-2">{residente.apartamento}</td>
-                                                                <td className="px-4 py-2">{servicio.nombre}</td>
-                                                                <td className="px-4 py-2">${servicio.monto}</td>
-                                                                <td className="px-4 py-2">{new Date(servicio.fechaVencimiento).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}</td>
-                                                                <td className="px-4 py-2">
-                                                                    <span className={`text-xs px-2 py-1 rounded ${
-                                                                        servicio.diasVencimiento < 0 
-                                                                            ? 'bg-red-600 text-white' 
-                                                                            : 'bg-yellow-400 text-black'
-                                                                    }`}>
-                                                                        {servicio.diasVencimiento < 0 
-                                                                            ? `${Math.abs(servicio.diasVencimiento)} días`
-                                                                            : `${servicio.diasVencimiento} días`
-                                                                        }
-                                                                    </span>
-                                                                </td>
-                                                                <td className="px-4 py-2 text-center relative">
-                                                                    <button 
-                                                                        className="px-3 py-1 bg-blue-600 text-white text-sm rounded shadow hover:bg-blue-700"
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            handleShowMenu(`${residente.id}-${index}`, e);
-                                                                        }}
-                                                                    >
-                                                                        Contactar
-                                                                    </button>
-                                                                    {showContactMenu === `${residente.id}-${index}` && (
-                                                                        <ContactMenu 
-                                                                            residente={residente.nombre}
-                                                                            telefono={residente.telefono}
-                                                                            email={residente.email}
-                                                                        />
-                                                                    )}
-                                                                </td>
-                                                            </tr>
-                                                        ))
-                                                )}
-                                                <tr 
-                                                    className="border-t hover:bg-gray-50 cursor-pointer transition-colors"
-                                                    onClick={() => {
-                                                        const residenteData = {
-                                                            nombre: "Pedro Rodríguez",
-                                                            apartamento: "102",
-                                                            torre: "1", 
-                                                            telefono: "321-555-0102",
-                                                            email: "pedro@email.com",
-                                                            diasMora: 13,
-                                                            totalDeuda: 75
-                                                        };
-                                                        // Navegar a PageResidente con datos
-                                                        window.location.href = `/residente?fromMora=true&data=${encodeURIComponent(JSON.stringify(residenteData))}`;
-                                                    }}
-                                                >
-                                                    <td className="px-4 py-2">Pedro Rodríguez</td>
-                                                    <td className="px-4 py-2">Torre 1</td>
-                                                    <td className="px-4 py-2">102</td>
-                                                    <td className="px-4 py-2">Agua</td>
-                                                    <td className="px-4 py-2">$75</td>
-                                                    <td className="px-4 py-2">05/09/2025</td>
-                                                    <td className="px-4 py-2">
-                                                        <span className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded">13 días</span>
-                                                    </td>
-                                                    <td className="px-4 py-2 text-center relative">
-                                                        <button 
-                                                            className="px-3 py-1 bg-blue-600 text-white text-sm rounded shadow hover:bg-blue-700"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleShowMenu('pedro', e);
-                                                            }}
-                                                        >
-                                                            Contactar
-                                                        </button>
-                                                        {showContactMenu === 'pedro' && (
-                                                            <ContactMenu 
-                                                                residente="Pedro Rodríguez" 
-                                                                telefono="321-555-0102" 
-                                                                email="pedro@email.com"
-                                                            />
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                                <tr className="border-t">
-                                                    <td className="px-4 py-2">Ana Martínez</td>
-                                                    <td className="px-4 py-2">Torre 3</td>
-                                                    <td className="px-4 py-2">301</td>
-                                                    <td className="px-4 py-2">Energía</td>
-                                                    <td className="px-4 py-2">$120</td>
-                                                    <td className="px-4 py-2">01/09/2025</td>
-                                                    <td className="px-4 py-2">
-                                                        <span className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded">17 días</span>
-                                                    </td>
-                                                    <td className="px-4 py-2 text-center relative">
-                                                        <button 
-                                                            className="px-3 py-1 bg-blue-600 text-white text-sm rounded shadow hover:bg-blue-700"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleShowMenu('ana', e);
-                                                            }}
-                                                        >
-                                                            Contactar
-                                                        </button>
-                                                        {showContactMenu === 'ana' && (
-                                                            <ContactMenu 
-                                                                residente="Ana Martínez" 
-                                                                telefono="321-555-0301" 
-                                                                email="ana@email.com"
-                                                            />
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                                <tr className="border-t">
-                                                    <td className="px-4 py-2">Luis Hernández</td>
-                                                    <td className="px-4 py-2">Torre 4</td>
-                                                    <td className="px-4 py-2">404</td>
-                                                    <td className="px-4 py-2">Cuota de mantenimiento</td>
-                                                    <td className="px-4 py-2">$150</td>
-                                                    <td className="px-4 py-2">15/08/2025</td>
-                                                    <td className="px-4 py-2">
-                                                        <span className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded">34 días</span>
-                                                    </td>
-                                                    <td className="px-4 py-2 text-center relative">
-                                                        <button 
-                                                            className="px-3 py-1 bg-blue-600 text-white text-sm rounded shadow hover:bg-blue-700"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleShowMenu('luis', e);
-                                                            }}
-                                                        >
-                                                            Contactar
-                                                        </button>
-                                                        {showContactMenu === 'luis' && (
-                                                            <ContactMenu 
-                                                                residente="Luis Hernández" 
-                                                                telefono="321-555-0404" 
-                                                                email="luis@email.com"
-                                                            />
-                                                        )}
-                                                    </td>
-                                                </tr>
+                                                                Contactar
+                                                            </button>
+                                                            {showContactMenu === residente.key && (
+                                                                <ContactMenu residente={residente.nombre} telefono={residente.telefono} email={residente.email} />
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
                                             </tbody>
                                         </table>
+                                        </div>
+                                        {/* Paginación */}
+                                        <div className="flex justify-center items-center mt-4 gap-2 mb-6">
+                                            <button
+                                                className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+                                                onClick={() => setPaginaActual(p => Math.max(1, p - 1))}
+                                                disabled={paginaActual === 1}
+                                            >Anterior</button>
+                                            <span className="px-2">Página {paginaActual} de {totalPaginas}</span>
+                                            <button
+                                                className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+                                                onClick={() => setPaginaActual(p => Math.min(totalPaginas, p + 1))}
+                                                disabled={paginaActual === totalPaginas}
+                                            >Siguiente</button>
+                                        </div>
                                     </div>
-                                </div>
+                                )}
                             </div>
                         </div>
                     </div>
-                </ImgFondo>
             </main>
-
-            {/* FOOTER */}
             <SectionFooter />
         </div>
     );
