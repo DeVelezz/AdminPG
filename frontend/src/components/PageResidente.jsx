@@ -525,31 +525,38 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
                                                             </td>
                                                             <td className="px-4 py-2 text-center flex items-center justify-center gap-2">
                                                                                         {(() => {
-                                                                                                                            // Determinar si está pagado: preferir bandera backend, luego fechaPago normalizada
-                                                                                                                            const isPaid = Boolean(servicio.is_paid || servicio.fechaPago || servicio.fecha_pago);
-                                                                                                                            const isOverdue = servicio.diasVencimiento < 0;
-                                                                                                                            // Mostrar botones solo si está en mora (vencido) y no está pagado
-                                                                                                                            if (!isPaid && isOverdue) {
-                                                                        return (
-                                                                            <>
-                                                                                <button className="px-3 py-1 bg-blue-600 text-white text-sm rounded shadow hover:bg-blue-700" onClick={() => handlePayment(servicio)}>
-                                                                                    {esDesdeMora ? "Registrar pago" : "Pagar"}
-                                                                                </button>
-                                                                                <button className="px-3 py-1 bg-gray-600 text-white text-sm rounded shadow hover:bg-gray-700" onClick={() => { setSelectedService(servicio); setShowEditModal(true); }}>
-                                                                                    Editar
-                                                                                </button>
-                                                                            </>
-                                                                        );
-                                                                    }
-                                                                                                                            // Si ya está pagado, mostrar etiqueta mínima
-                                                                                                                            if (isPaid) return <span className="text-sm text-green-600 font-medium">Pagado</span>;
-                                                                    // Si no está en mora ni pagado, permitir pago normal
-                                                                    return (
-                                                                        <button className="px-3 py-1 bg-blue-600 text-white text-sm rounded shadow hover:bg-blue-700" onClick={() => handlePayment(servicio)}>
-                                                                            Pagar
-                                                                        </button>
-                                                                    );
-                                                                                                                        })()}
+                                                                                            // Determinar si está pagado: preferir bandera backend, luego fechaPago normalizada
+                                                                                            const isPaid = Boolean(servicio.is_paid || servicio.fechaPago || servicio.fecha_pago);
+                                                                                            const isOverdue = servicio.diasVencimiento < 0;
+                                                                                            // Normalizar rol del usuario logueado
+                                                                                            const role = (usuarioLogueado?.rol || usuarioLogueado?.role || '').toString().toLowerCase();
+                                                                                            const isAdmin = role === 'admin' || role === 'administrador' || role === 'administrator';
+
+                                                                                            // Mostrar botones solo si está en mora (vencido) y no está pagado
+                                                                                            if (!isPaid && isOverdue) {
+                                                                                                return (
+                                                                                                    <>
+                                                                                                        <button className="px-3 py-1 bg-blue-600 text-white text-sm rounded shadow hover:bg-blue-700" onClick={() => handlePayment(servicio)}>
+                                                                                                            {esDesdeMora ? "Registrar pago" : "Pagar"}
+                                                                                                        </button>
+                                                                                                        {isAdmin && (
+                                                                                                            <button className="px-3 py-1 bg-gray-600 text-white text-sm rounded shadow hover:bg-gray-700" onClick={() => { setSelectedService(servicio); setShowEditModal(true); }}>
+                                                                                                                Editar
+                                                                                                            </button>
+                                                                                                        )}
+                                                                                                    </>
+                                                                                                );
+                                                                                            }
+
+                                                                                            // Si ya está pagado, mostrar etiqueta mínima
+                                                                                            if (isPaid) return <span className="text-sm text-green-600 font-medium">Pagado</span>;
+                                                                                            // Si no está en mora ni pagado, permitir pago normal
+                                                                                            return (
+                                                                                                <button className="px-3 py-1 bg-blue-600 text-white text-sm rounded shadow hover:bg-blue-700" onClick={() => handlePayment(servicio)}>
+                                                                                                    Pagar
+                                                                                                </button>
+                                                                                            );
+                                                                                        })()}
                                                             </td>
                                                         </tr>
                                                     ))}

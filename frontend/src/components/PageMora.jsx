@@ -22,23 +22,10 @@ export default function PageMora() {
     const cargarResidentesMora = async () => {
             try {
                 setLoading(true);
-                const token = localStorage.getItem('token');
-                const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-
-                const resp = await fetch(`${API_URL}/servicios/morosos`, {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...(token ? { Authorization: `Bearer ${token}` } : {})
-                    }
-                });
-
-                if (!resp.ok) {
-                    const text = await resp.text();
-                    throw new Error(text || 'Error al obtener residentes en mora');
-                }
-
-                const json = await resp.json();
-                const usuarios = Array.isArray(json) ? json : (json.data ?? []);
+                const api = (await import('../services/api')).default;
+                const resp = await api.get('/servicios/morosos');
+                const data = resp.data;
+                const usuarios = Array.isArray(data) ? data : (data.data ?? data);
 
                 // Mapear la respuesta del endpoint morosos directamente
                 // Not needed: confiamos en el cálculo de `diasVencimiento` del backend
