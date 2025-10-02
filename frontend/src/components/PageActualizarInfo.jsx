@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import useService from '../services/useService';
+import Swal from 'sweetalert2';
 import SectionHeader from "./SectionHeader";
 import Logo from "./Logo";
 import BotonSecundary from "./BotonSecundary";
@@ -9,21 +11,57 @@ export default function PageActualizarInfo() {
     // Estado para los campos y la página actual
     const [page, setPage] = useState(1);
     const [form, setForm] = useState({
-        nombre: "Admin Principal",
-        email: "admin@adminpg.com",
-        telefono: "321-555-0100",
-        actual: "",
-        nueva: "",
-        confirmar: ""
+        nombre: '',
+        email: '',
+        telefono: '',
+        actual: '',
+        nueva: '',
+        confirmar: ''
     });
+
+    useEffect(() => {
+        // Intentar cargar usuario desde localStorage (guardado en login)
+        try {
+            const u = JSON.parse(localStorage.getItem('Usuario'));
+            if (u) {
+                setForm(form => ({ ...form, nombre: u.nombre || '', email: u.email || '', telefono: u.telefono || '' }));
+            }
+        } catch {
+            // no hay usuario guardado
+        }
+    }, []);
 
     const handleChange = e => {
         setForm({ ...form, [e.target.name]: e.target.value });
     };
 
-    const handleSubmit = e => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        alert("Información actualizada");
+        if (form.nueva && form.nueva !== form.confirmar) {
+            return Swal.fire({ icon: 'warning', title: 'Contraseñas', text: 'La nueva contraseña y su confirmación no coinciden.' });
+        }
+
+        try {
+            const u = JSON.parse(localStorage.getItem('Usuario')) || {};
+            const id = u.id;
+            if (!id) return Swal.fire({ icon: 'error', title: 'Error', text: 'No hay usuario identificado.' });
+
+            const body = {
+                nombre: form.nombre,
+                email: form.email,
+                telefono: form.telefono,
+            };
+            if (form.nueva) body.password = form.nueva;
+
+            await useService.updateUser(id, body);
+            Swal.fire({ icon: 'success', title: 'Listo', text: 'Información actualizada correctamente.' });
+            // actualizar localStorage
+            const updatedUser = { ...u, nombre: form.nombre, email: form.email, telefono: form.telefono };
+            localStorage.setItem('Usuario', JSON.stringify(updatedUser));
+        } catch (err) {
+            console.error('Error actualizando info:', err);
+            Swal.fire({ icon: 'error', title: 'Error', text: typeof err === 'string' ? err : 'No se pudo actualizar la información.' });
+        }
     };
 
     return (

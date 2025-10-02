@@ -1,67 +1,107 @@
 import axios from 'axios';
 
-const API_URL = "http://localhost:3000/api" // Asegúrate de que esta URL coincida con tu backend
-
-const apiClient = axios.create({
-    baseURL: API_URL,
-    headers: {
-        'Content-Type': 'application/json',
-    },
-    timeout: 5000,
-})
-
+// En Vite las variables de entorno públicas deben empezar con VITE_
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const useService = {
-    getUsers: async () => {
+    // Login: espera (email, contrasena)
+    login: async (email, contrasena) => {
         try {
-            const response = await apiClient.get('/usuarios');
-            return response.data
-        } catch (error) {
-            console.error("Error fetching users: ", error);
-            throw error.response?.data?.message || error.message || "Error desconocido al obtener usuarios";
-        }
-    },
+            const response = await axios.post(`${API_URL}/login`, {
+                email,
+                contrasena,
+            });
 
-    getUserById: async (id) => {
-        try {
-            const response = await apiClient.get(`/${id}`);
+            if (response.data && response.data.success) {
+                // Guardar token y usuario
+                localStorage.setItem('token', response.data.token);
+                localStorage.setItem('Usuario', JSON.stringify(response.data.usuario));
+            }
+
             return response.data;
         } catch (error) {
-            console.error(`Error fetching user with ID ${id}:`, error);
-            throw error.response?.data?.message || error.message || `Error desconocido al obtener usuario con ID ${id}`;
+            console.error('Error en login:', error);
+            throw error.response?.data?.message || error.message || 'Error al iniciar sesión';
         }
     },
 
-    // Create a new user
+    // Registro de usuario
     createUser: async (userData) => {
         try {
-            const response = await apiClient.post('/registro', userData); // Axios serializa automáticamente a JSON
+            const response = await axios.post(`${API_URL}/registro`, userData);
+
             return response.data;
         } catch (error) {
-            console.error("Error creating user:", error);
-            throw error.response?.data?.message || error.message || "Error desconocido al crear usuario";
+            console.error('Error en createUser:', error);
+            throw error.response?.data?.message || error.message || 'Error al registrar usuario';
         }
     },
-    // Update an existing user
+
+    // Obtener todos los usuarios
+    getAllUsers: async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await axios.get(`${API_URL}/usuarios`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            return response.data.data;
+        } catch (error) {
+            console.error('Error al obtener usuarios:', error);
+            throw error.response?.data?.message || 'Error al obtener usuarios';
+        }
+    },
+
+    // Obtener usuario por ID
+    getUserById: async (id) => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await axios.get(`${API_URL}/usuarios/${id}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            return response.data.data;
+        } catch (error) {
+            console.error('Error al obtener usuario:', error);
+            throw error.response?.data?.message || 'Error al obtener usuario';
+        }
+    },
+
+    // Actualizar usuario
     updateUser: async (id, userData) => {
         try {
+            const token = localStorage.getItem('token');
+            const response = await axios.put(`${API_URL}/usuarios/${id}`, userData, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
 
-            const response = await apiClient.put(`/${id}`, userData);
-            return response.data; // Backend devuelve un mensaje
+            return response.data;
         } catch (error) {
-            console.error(`Error updating user with ID ${id}:`, error);
-            throw error.response?.data?.message || error.message || `Error desconocido al actualizar usuario con ID ${id}`;
+            console.error('Error al actualizar usuario:', error);
+            throw error.response?.data?.message || 'Error al actualizar usuario';
         }
     },
-    // Delete a user
+
+    // Eliminar usuario
     deleteUser: async (id) => {
         try {
-            const response = await apiClient.delete(`/${id}`);
-            return response.data; // Backend devuelve un mensaje
+            const token = localStorage.getItem('token');
+            const response = await axios.delete(`${API_URL}/usuarios/${id}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            return response.data;
         } catch (error) {
-            console.error(`Error deleting user with ID ${id}:`, error);
-            throw error.response?.data?.message || error.message || `Error desconocido al eliminar usuario con ID ${id}`;
+            console.error('Error al eliminar usuario:', error);
+            throw error.response?.data?.message || 'Error al eliminar usuario';
         }
     },
-}
+
+    // Cerrar sesión
+    logout: () => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('Usuario');
+    },
+};
+
 export default useService;

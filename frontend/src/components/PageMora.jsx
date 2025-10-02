@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import Swal from 'sweetalert2';
 import SectionHeader from "./SectionHeader";
 import Logo from "./Logo";
 import BotonSecundary from "./BotonSecundary";
@@ -6,121 +7,102 @@ import ImgFondo from "./ImgFondo";
 import SectionFooter from "./SectionFooter";
 import { FaPhone } from "react-icons/fa";
 import { SiGmail, SiWhatsapp } from "react-icons/si";
+import { formatCurrency } from '../utils/estadoUtils';
 
 export default function PageMora() {
     // Estado y lógica solo para datos reales
     const [residentesEnMora, setResidentesEnMora] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
     const [paginaActual, setPaginaActual] = useState(1);
-    const RESIDENTES_POR_PAGINA = 15;
+    const RESIDENTES_POR_PAGINA = 12;
     const [showContactMenu, setShowContactMenu] = useState(null);
     const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
-    const hoy = new Date();
+    useEffect(() => {
+    const cargarResidentesMora = async () => {
+            try {
+                setLoading(true);
+                const token = localStorage.getItem('token');
+                const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-    React.useEffect(() => {
-        fetch("/api/residentes-mora")
-            .then(res => res.json())
-            .then(data => {
-                let procesados = data.map(residente =>
-                    residente.servicios
-                        .filter(servicio => !servicio.fechaPago)
-                        .map(servicio => {
-                            const vencimiento = new Date(servicio.fechaVencimiento);
-                            const diasVencimiento = Math.floor((vencimiento - hoy) / (1000 * 60 * 60 * 24));
-                            return {
-                                key: `${residente.id}-${servicio.nombre}`,
-                                nombre: residente.nombre,
-                                torre: residente.torre,
-                                apartamento: residente.apartamento,
-                                concepto: servicio.nombre,
-                                monto: servicio.monto,
-                                fechaVencimiento: servicio.fechaVencimiento,
-                                diasVencimiento,
-                                estado: diasVencimiento < 0 ? "Pendiente" : "Por vencer",
-                                telefono: residente.telefono,
-                                email: residente.email
-                            };
-                        })
-                ).flat();
-                // Fallback temporal si la API responde vacío
-                if (procesados.length === 0) {
-                    procesados = [
-                        {
-                            key: 'demo1', nombre: 'Ana García', torre: '1', apartamento: '101', concepto: 'Cuota de mantenimiento', monto: 50, fechaVencimiento: '2025-09-15', diasVencimiento: -6, estado: 'Pendiente', telefono: '321-555-0101', email: 'ana.garcia@email.com'
-                        },
-                        {
-                            key: 'demo2', nombre: 'Carlos López', torre: '2', apartamento: '205', concepto: 'Agua', monto: 30, fechaVencimiento: '2025-09-10', diasVencimiento: -11, estado: 'Pendiente', telefono: '321-555-0205', email: 'carlos.lopez@email.com'
-                        },
-                        {
-                            key: 'demo3', nombre: 'María Rodríguez', torre: '3', apartamento: '303', concepto: 'Gas', monto: 35, fechaVencimiento: '2025-08-30', diasVencimiento: -22, estado: 'Pendiente', telefono: '321-555-0303', email: 'maria.rodriguez@email.com'
-                        },
-                        {
-                            key: 'demo4', nombre: 'Pedro Ramírez', torre: '1', apartamento: '102', concepto: 'Energía', monto: 75, fechaVencimiento: '2025-09-05', diasVencimiento: -16, estado: 'Pendiente', telefono: '321-555-0102', email: 'pedro@email.com'
-                        },
-                        {
-                            key: 'demo5', nombre: 'Ana Martínez', torre: '3', apartamento: '301', concepto: 'Energía', monto: 120, fechaVencimiento: '2025-09-01', diasVencimiento: -20, estado: 'Pendiente', telefono: '321-555-0301', email: 'ana@email.com'
-                        },
-                        {
-                            key: 'demo6', nombre: 'Luis Hernández', torre: '4', apartamento: '404', concepto: 'Cuota de mantenimiento', monto: 150, fechaVencimiento: '2025-08-15', diasVencimiento: -34, estado: 'Pendiente', telefono: '321-555-0404', email: 'luis@email.com'
-                        },
-                        {
-                            key: 'demo7', nombre: 'Sofía Torres', torre: '2', apartamento: '210', concepto: 'Gas', monto: 40, fechaVencimiento: '2025-09-12', diasVencimiento: -9, estado: 'Pendiente', telefono: '321-555-0210', email: 'sofia@email.com'
-                        },
-                        {
-                            key: 'demo8', nombre: 'Miguel Díaz', torre: '1', apartamento: '110', concepto: 'Agua', monto: 60, fechaVencimiento: '2025-09-08', diasVencimiento: -13, estado: 'Pendiente', telefono: '321-555-0110', email: 'miguel@email.com'
-                        },
-                        {
-                            key: 'demo9', nombre: 'Laura Gómez', torre: '3', apartamento: '320', concepto: 'Cuota de mantenimiento', monto: 80, fechaVencimiento: '2025-09-03', diasVencimiento: -18, estado: 'Pendiente', telefono: '321-555-0320', email: 'laura@email.com'
-                        },
-                        {
-                            key: 'demo10', nombre: 'Andrés Ruiz', torre: '2', apartamento: '215', concepto: 'Energía', monto: 95, fechaVencimiento: '2025-08-28', diasVencimiento: -24, estado: 'Pendiente', telefono: '321-555-0215', email: 'andres@email.com'
-                        }
-                    ];
-                }
-                setResidentesEnMora(procesados);
-                setLoading(false);
-            })
-            .catch(() => {
-                // Si hay error, también mostrar datos de prueba
-                setResidentesEnMora([
-                    {
-                        key: 'demo1', nombre: 'Ana García', torre: '1', apartamento: '101', concepto: 'Cuota de mantenimiento', monto: 50, fechaVencimiento: '2025-09-15', diasVencimiento: -6, estado: 'Pendiente', telefono: '321-555-0101', email: 'ana.garcia@email.com'
-                    },
-                    {
-                        key: 'demo2', nombre: 'Carlos López', torre: '2', apartamento: '205', concepto: 'Agua', monto: 30, fechaVencimiento: '2025-09-10', diasVencimiento: -11, estado: 'Pendiente', telefono: '321-555-0205', email: 'carlos.lopez@email.com'
-                    },
-                    {
-                        key: 'demo3', nombre: 'María Rodríguez', torre: '3', apartamento: '303', concepto: 'Gas', monto: 35, fechaVencimiento: '2025-08-30', diasVencimiento: -22, estado: 'Pendiente', telefono: '321-555-0303', email: 'maria.rodriguez@email.com'
-                    },
-                    {
-                        key: 'demo4', nombre: 'Pedro Ramírez', torre: '1', apartamento: '102', concepto: 'Energía', monto: 75, fechaVencimiento: '2025-09-05', diasVencimiento: -16, estado: 'Pendiente', telefono: '321-555-0102', email: 'pedro@email.com'
-                    },
-                    {
-                        key: 'demo5', nombre: 'Ana Martínez', torre: '3', apartamento: '301', concepto: 'Energía', monto: 120, fechaVencimiento: '2025-09-01', diasVencimiento: -20, estado: 'Pendiente', telefono: '321-555-0301', email: 'ana@email.com'
-                    },
-                    {
-                        key: 'demo6', nombre: 'Luis Hernández', torre: '4', apartamento: '404', concepto: 'Cuota de mantenimiento', monto: 150, fechaVencimiento: '2025-08-15', diasVencimiento: -34, estado: 'Pendiente', telefono: '321-555-0404', email: 'luis@email.com'
-                    },
-                    {
-                        key: 'demo7', nombre: 'Sofía Torres', torre: '2', apartamento: '210', concepto: 'Gas', monto: 40, fechaVencimiento: '2025-09-12', diasVencimiento: -9, estado: 'Pendiente', telefono: '321-555-0210', email: 'sofia@email.com'
-                    },
-                    {
-                        key: 'demo8', nombre: 'Miguel Díaz', torre: '1', apartamento: '110', concepto: 'Agua', monto: 60, fechaVencimiento: '2025-09-08', diasVencimiento: -13, estado: 'Pendiente', telefono: '321-555-0110', email: 'miguel@email.com'
-                    },
-                    {
-                        key: 'demo9', nombre: 'Laura Gómez', torre: '3', apartamento: '320', concepto: 'Cuota de mantenimiento', monto: 80, fechaVencimiento: '2025-09-03', diasVencimiento: -18, estado: 'Pendiente', telefono: '321-555-0320', email: 'laura@email.com'
-                    },
-                    {
-                        key: 'demo10', nombre: 'Andrés Ruiz', torre: '2', apartamento: '215', concepto: 'Energía', monto: 95, fechaVencimiento: '2025-08-28', diasVencimiento: -24, estado: 'Pendiente', telefono: '321-555-0215', email: 'andres@email.com'
+                const resp = await fetch(`${API_URL}/servicios/morosos`, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { Authorization: `Bearer ${token}` } : {})
                     }
-                ]);
+                });
+
+                if (!resp.ok) {
+                    const text = await resp.text();
+                    throw new Error(text || 'Error al obtener residentes en mora');
+                }
+
+                const json = await resp.json();
+                const usuarios = Array.isArray(json) ? json : (json.data ?? []);
+
+                // Mapear la respuesta del endpoint morosos directamente
+                // Not needed: confiamos en el cálculo de `diasVencimiento` del backend
+
+                // Mapear la respuesta: confiar exclusivamente en `diasVencimiento` y `deudaTotal` devueltos por el backend
+                const procesados = usuarios.map(u => {
+                    return {
+                        key: `u-${u.usuario_id || u.residente_id}`,
+                        nombre: u.nombre || '',
+                        torre: u.torre || '',
+                        apartamento: u.apartamento || '',
+                        concepto: 'Deuda acumulada',
+                        monto: Number(u.deudaTotal || u.monto || 0) || 0,
+                        deudaTotal: Number(u.deudaTotal || u.monto || 0) || 0,
+                        residente_id: u.residente_id || null,
+                        usuario_id: u.usuario_id || null,
+                        fechaVencimiento: u.ultimoVencimiento || u.fechaVencimiento || null,
+                        // Usar directamente el valor calculado por el backend. Si no existe, tratar como 0 (no moroso)
+                        diasVencimiento: Number(u.diasVencimiento ?? 0),
+                        estado: u.estado || 'Pendiente',
+                        telefono: u.telefono || '',
+                        email: u.email || ''
+                    };
+                });
+
+                // Filtrar para mostrar únicamente morosos reales: backend debe proveer diasVencimiento > 0
+                const soloMorosos = procesados.filter(p => Number(p.diasVencimiento) > 0 && Number(p.monto || 0) > 0);
+                console.debug('[PageMora] procesados total:', procesados.length, 'filtrados como morosos:', soloMorosos.length);
+                // Debug: cuántos morosos y ejemplos
+                console.debug('[PageMora] morosos encontrados:', soloMorosos.length, soloMorosos.slice(0,3));
+                // Ordenar por deuda total descendente (los mayores deudores arriba)
+                soloMorosos.sort((a, b) => Number(b.monto || 0) - Number(a.monto || 0));
+
+                setResidentesEnMora(soloMorosos);
+            } catch (err) {
+                console.error('Error al cargar residentes en mora:', err);
+                setResidentesEnMora([]);
+                const texto = err?.message || 'No se pudo cargar la lista de morosos.';
+                Swal.fire({ icon: 'error', title: 'Error', text: texto });
+            } finally {
                 setLoading(false);
-            });
+            }
+        };
+
+        cargarResidentesMora();
     }, []);
 
     // Paginación
-    const totalPaginas = Math.ceil(residentesEnMora.length / RESIDENTES_POR_PAGINA);
-    const residentesPagina = residentesEnMora.slice((paginaActual - 1) * RESIDENTES_POR_PAGINA, paginaActual * RESIDENTES_POR_PAGINA);
+    // Filtrado por buscador (nombre, email, torre, apartamento)
+    const residentesFiltradosPorBusqueda = residentesEnMora.filter(r => {
+        if (!searchTerm || String(searchTerm).trim() === '') return true;
+        const s = String(searchTerm).toLowerCase();
+        return (
+            String(r.nombre || '').toLowerCase().includes(s) ||
+            String(r.email || '').toLowerCase().includes(s) ||
+            String(r.torre || '').toLowerCase().includes(s) ||
+            String(r.apartamento || '').toLowerCase().includes(s)
+        );
+    });
+
+    const totalFiltrados = residentesFiltradosPorBusqueda.length;
+    const totalMorosos = residentesEnMora.length;
+    const totalPaginas = Math.ceil(totalFiltrados / RESIDENTES_POR_PAGINA) || 1;
+    const residentesPagina = residentesFiltradosPorBusqueda.slice((paginaActual - 1) * RESIDENTES_POR_PAGINA, paginaActual * RESIDENTES_POR_PAGINA);
 
     const handleContactar = (residente, telefono, email, accion) => {
         switch(accion) {
@@ -209,6 +191,20 @@ export default function PageMora() {
                                 ) : (
                                     <div className="overflow-x-auto flex-1">
                                         <div className="overflow-x-auto rounded-lg border-gray-300 border shadow-lg p-2">
+                                            <div className="flex items-center justify-between mb-3 gap-3">
+                                                <div className="flex-1">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Buscar por nombre, email, torre o apto..."
+                                                        value={searchTerm}
+                                                        onChange={(e) => { setSearchTerm(e.target.value); setPaginaActual(1); }}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                </div>
+                                                <div className="text-sm text-gray-600 ml-4">
+                                                    Mostrando <span className="font-semibold">{residentesPagina.length}</span> de <span className="font-semibold">{totalMorosos}</span> morosos
+                                                </div>
+                                            </div>
                                             <table className="w-full bg-white rounded">
                                             <thead>
                                                 <tr className="bg-gray-100">
@@ -226,7 +222,7 @@ export default function PageMora() {
                                                 {residentesPagina.map((residente) => (
                                                     <tr 
                                                         key={residente.key} 
-                                                        className={`hover:bg-gray-50 cursor-pointer transition-colors ${residente.estado === "Pendiente" ? "bg-red-50" : ""}`}
+                                                        className={`hover:bg-gray-50 cursor-pointer transition-colors ${residente.diasVencimiento > 0 ? 'bg-red-100/65' : ''}`}
                                                         onClick={() => {
                                                             const residenteData = {
                                                                 nombre: residente.nombre,
@@ -236,9 +232,11 @@ export default function PageMora() {
                                                                 email: residente.email,
                                                                 concepto: residente.concepto,
                                                                 monto: residente.monto,
+                                                                deudaTotal: residente.monto,
                                                                 fechaVencimiento: residente.fechaVencimiento,
                                                                 diasVencimiento: residente.diasVencimiento,
-                                                                estado: residente.estado
+                                                                // Asegurar que la navegación refleje 'En mora' cuando días vencidos > 0
+                                                                estado: (Number(residente.diasVencimiento) > 0) ? 'En mora' : (residente.estado || 'Pendiente')
                                                             };
                                                             window.location.href = `/residente?fromMora=true&data=${encodeURIComponent(JSON.stringify(residenteData))}`;
                                                         }}
@@ -247,11 +245,12 @@ export default function PageMora() {
                                                         <td className="px-4 py-2">{residente.torre}</td>
                                                         <td className="px-4 py-2">{residente.apartamento}</td>
                                                         <td className="px-4 py-2">{residente.concepto}</td>
-                                                        <td className="px-4 py-2 font-bold text-blue-700">${residente.monto}</td>
+                                                        <td className="px-4 py-2 font-bold text-blue-700">{formatCurrency(residente.monto)}</td>
                                                         <td className="px-4 py-2">{residente.fechaVencimiento}</td>
                                                         <td className="px-4 py-2">
-                                                            <span className={`text-xs px-2 py-1 rounded ${residente.diasVencimiento < 0 ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-800'}`}>
-                                                                {residente.diasVencimiento < 0 ? `${Math.abs(residente.diasVencimiento)} días` : `${residente.diasVencimiento} días`}
+                                                            {/* Mostrar badge de días en rojo si efectivamente hay días vencidos */}
+                                                            <span className={`text-xs px-2 py-1 rounded ${residente.diasVencimiento > 0 ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}>
+                                                                {Math.abs(residente.diasVencimiento)} días
                                                             </span>
                                                         </td>
                                                         <td className="px-4 py-2 text-center relative">
@@ -294,3 +293,5 @@ export default function PageMora() {
         </div>
     );
 }
+
+    // formatCurrency y normalizeEstado provienen de ../utils/estadoUtils

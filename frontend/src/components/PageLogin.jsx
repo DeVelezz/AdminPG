@@ -5,59 +5,133 @@ import Logo from './Logo'
 import ImgFondo from './ImgFondo'
 import SectionFooter from './SectionFooter'
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import Form from './Form';
 
 export default function PageLogin({ onLogin }) {
+    const navigate = useNavigate();
     const [email, setEmail] = useState('');
     const [contraseña, setContraseña] = useState('');
 
     const handleSubmit = async (e) => {
         e.preventDefault();
 
+        // Validación básica
+        if (!email || !contraseña) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Campos vacíos',
+                text: 'Por favor completa todos los campos',
+                timer: 3000,
+                timerProgressBar: true,
+            });
+            return;
+        }
+
         try {
-            const res = await axios.post('http://localhost:3000/api/login', { email, contraseña });
+            // Enviar con headers correctos
+            const res = await axios.post('http://localhost:5000/api/login', 
+                { 
+                    email: email.trim(), 
+                    contraseña: contraseña.trim() 
+                },
+                {
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+
+            // Guardar datos en localStorage
             localStorage.setItem('token', res.data.token);
             localStorage.setItem('Usuario', JSON.stringify(res.data.usuario));
 
-            onLogin(res.data.usuario);
+            // Mostrar mensaje de éxito
+            await Swal.fire({
+                icon: 'success',
+                title: '¡Bienvenido!',
+                text: 'Inicio de sesión exitoso',
+                timer: 1500,
+                showConfirmButton: false,
+                timerProgressBar: true,
+            });
 
-            // Redirigir según el tipo de usuario
-            if (res.data.usuario.tipo === 'admin') {
-                window.location.href = "/admin";
-            } else {
-                window.location.href = "/residente";
+            // Actualizar estado del padre
+            if (onLogin) {
+                onLogin(res.data.usuario);
             }
+
+            // Redirigir según el rol del usuario
+            setTimeout(() => {
+                if (res.data.usuario.rol === 'administrador') {
+                    navigate("/admin");
+                } else {
+                    navigate("/residente");
+                }
+            }, 100);
 
         } catch (error) {
-            if (error.response?.data?.msg === 'Usuario no encontrado') {
-                Swal.fire({
+            console.error('Error completo:', error);
+            
+            // Manejar diferentes tipos de errores
+            if (error.response) {
+                // El servidor respondió con un error
+                const errorMsg = error.response?.data?.error || error.response?.data?.message;
+                
+                if (errorMsg === 'Usuario no encontrado') {
+                    await Swal.fire({
+                        icon: 'error',
+                        title: 'Usuario no encontrado',
+                        text: 'No existe una cuenta con este correo electrónico',
+                        timer: 3000,
+                        timerProgressBar: true,
+                    });
+                } else if (errorMsg === 'Contraseña incorrecta') {
+                    await Swal.fire({
+                        icon: 'error',
+                        title: 'Contraseña incorrecta',
+                        text: 'La contraseña que ingresaste es incorrecta',
+                        timer: 3000,
+                        timerProgressBar: true,
+                    });
+                } else if (errorMsg === 'Faltan campos requeridos') {
+                    await Swal.fire({
+                        icon: 'error',
+                        title: 'Campos incompletos',
+                        text: 'Por favor completa todos los campos',
+                        timer: 3000,
+                        timerProgressBar: true,
+                    });
+                } else {
+                    await Swal.fire({
+                        icon: 'error',
+                        title: 'Error de inicio de sesión',
+                        text: errorMsg || 'Credenciales incorrectas',
+                        timer: 3000,
+                        timerProgressBar: true,
+                    });
+                }
+            } else if (error.request) {
+                // La petición se hizo pero no hubo respuesta
+                await Swal.fire({
                     icon: 'error',
-                    title: 'Error de login',
-                    text: 'Usuario no encontrado',
-                    timer: 3000,
-                    timerProgressBar: true,
-                });
-            } else if (error.response?.data?.msg === 'Faltan campos requeridos') {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error de login',
-                    text: 'Faltan campos requeridos',
+                    title: 'Error de conexión',
+                    text: 'No se pudo conectar con el servidor. Verifica tu conexión.',
                     timer: 3000,
                     timerProgressBar: true,
                 });
             } else {
-                Swal.fire({
+                // Otro tipo de error
+                await Swal.fire({
                     icon: 'error',
-                    title: 'Error de login',
-                    text: 'Credenciales incorrectas',
+                    title: 'Error',
+                    text: 'Ocurrió un error inesperado',
                     timer: 3000,
                     timerProgressBar: true,
                 });
             }
-
-            console.error(error.response?.data?.msg || "Error en login");
         }
     }
 
@@ -69,8 +143,8 @@ export default function PageLogin({ onLogin }) {
                     <Logo redirectTo="/" />
                 </div>
                 <div className="flex space-x-2">
-                    <BotonSecundary textoBtn="Inicio" onClick={() => window.location.href = "/"} />
-                    <BotonSecundary textoBtn="Registrate" onClick={() => window.location.href = "/registro"} />
+                    <BotonSecundary textoBtn="Inicio" onClick={() => navigate("/")} />
+                    <BotonSecundary textoBtn="Registrate" onClick={() => navigate("/registro")} />
                 </div>
             </SectionHeader>
             

@@ -1,23 +1,38 @@
 import React, { useState } from "react";
-import Formulario from "./Form"; // tu componente
+import { useNavigate } from "react-router-dom";
+import Formulario from "./Form";
 import Swal from "sweetalert2";
 import useService from "../services/useService";
 
-export default function Registro({ onSave, onCancel }) {
+export default function Registro() {
+    const navigate = useNavigate();
     const [paso, setPaso] = useState(1);
     const [datosUsuario, setDatosUsuario] = useState({});
-    const [datosResidente, setDatosResidente] = useState({});
 
-    // Campos solo para usuario residente
+    // Campos para el paso 1: datos del usuario
     const camposUsuario = [
         { nombre: "nombre", label: "Nombre", tipo: "text", placeholder: "Tu nombre", requerido: true },
         { nombre: "email", label: "Correo electrónico", tipo: "email", placeholder: "tucorreo@mail.com", requerido: true },
         { nombre: "contraseña", label: "Contraseña", tipo: "password", placeholder: "********", requerido: true },
     ];
 
+    // Campos para el paso 2: datos del residente (corregidos)
     const camposResidente = [
         { nombre: "telefono", label: "Teléfono", tipo: "text", placeholder: "Ej: 3214567890", requerido: true },
-        { nombre: "propiedad_id", label: "Propiedad ID", tipo: "text", placeholder: "Ej: 1", requerido: true },
+        { nombre: "torre", label: "Torre", tipo: "text", placeholder: "Ej: A, B, C", requerido: true },
+        { nombre: "apartamento", label: "Apartamento", tipo: "text", placeholder: "Ej: 101, 202", requerido: true },
+        { 
+            nombre: "genero", 
+            label: "Género", 
+            tipo: "select", 
+            placeholder: "Selecciona tu género", 
+            requerido: true,
+            opciones: [
+                { value: "masculino", label: "Masculino" },
+                { value: "femenino", label: "Femenino" },
+                { value: "otro", label: "Otro" }
+            ]
+        },
     ];
 
     const volverPaso1 = () => {
@@ -27,16 +42,9 @@ export default function Registro({ onSave, onCancel }) {
     const manejarPaso1 = (valores) => {
         setDatosUsuario(valores);
         setPaso(2);
-        const datosResidenteIniciales = {
-            telefono: "",
-            propiedad_id: ""
-        };
-        setDatosResidente(datosResidenteIniciales);
     };
 
-
     const manejarPaso2 = async (datosRol) => {
-
         const datosCompletos = {
             ...datosUsuario,
             ...datosRol
@@ -44,16 +52,19 @@ export default function Registro({ onSave, onCancel }) {
 
         try {
             await useService.createUser(datosCompletos);
-            Swal.fire({
+            
+            await Swal.fire({
                 icon: 'success',
                 title: 'Registro exitoso',
                 text: 'Residente registrado correctamente.',
-                timer: 3000,
+                timer: 2000,
                 timerProgressBar: true,
             });
-            onSave(); // Llama a la función onSave pasada como prop
+            
+            // Redirigir al login
+            navigate('/login');
+            
         } catch (error) {
-
             if (error === "Email ya registrado") {
                 Swal.fire({
                     icon: 'error',
@@ -77,7 +88,6 @@ export default function Registro({ onSave, onCancel }) {
                 });
                 return;
             }
-
 
             console.error("Error al registrar residente:", error);
             Swal.fire({
@@ -109,7 +119,6 @@ export default function Registro({ onSave, onCancel }) {
                     textoBoton="Registrar"
                     onSubmit={manejarPaso2}
                     onVolver={volverPaso1}
-                // valoresIniciales={}
                 />
             )}
         </div>

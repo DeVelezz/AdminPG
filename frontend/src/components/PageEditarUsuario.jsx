@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import useService from '../services/useService';
+import Swal from 'sweetalert2';
 import SectionHeader from "./SectionHeader";
 import Logo from "./Logo";
 import BotonSecundary from "./BotonSecundary";
@@ -20,41 +22,40 @@ export default function PageEditarUsuario() {
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
         const userId = urlParams.get('id');
-        
-        // Datos de ejemplo (en producción vendrían de la base de datos)
-        const usuarios = {
-            '001': {
-                id: '001',
-                nombre: 'Juan Pérez',
-                email: 'juan@email.com',
-                torre: 'Torre 1',
-                apartamento: '101',
-                telefono: '3001234567',
-                estado: 'Activo'
-            },
-            '002': {
-                id: '002',
-                nombre: 'María García',
-                email: 'maria@email.com',
-                torre: 'Torre 2',
-                apartamento: '205',
-                telefono: '3007654321',
-                estado: 'En mora'
-            },
-            '003': {
-                id: '003',
-                nombre: 'Carlos López',
-                email: 'carlos@email.com',
-                torre: 'Torre 1',
-                apartamento: '308',
-                telefono: '3009876543',
-                estado: 'Por vencer'
+        const cargarUsuario = async () => {
+            if (!userId) return;
+            try {
+                const token = localStorage.getItem('token');
+                const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+                const resp = await fetch(`${API_URL}/usuarios/${userId}`, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { Authorization: `Bearer ${token}` } : {})
+                    }
+                });
+                if (!resp.ok) {
+                    const txt = await resp.text();
+                    throw new Error(txt || 'No se pudo obtener el usuario');
+                }
+                const json = await resp.json();
+                const u = json.data || json;
+                setUserData({
+                    id: u.id || userId,
+                    nombre: u.nombre || '',
+                    email: u.email || '',
+                    torre: u.torre || '',
+                    apartamento: u.apartamento || '',
+                    telefono: u.telefono || '',
+                    estado: u.estado || 'Activo'
+                });
+            } catch (err) {
+                console.error('Error cargando usuario:', err);
+                // dejar el formulario vacío y notificar
+                window.alert('No se pudo cargar la información del usuario.');
             }
         };
 
-        if (userId && usuarios[userId]) {
-            setUserData(usuarios[userId]);
-        }
+        cargarUsuario();
     }, []);
 
     const handleInputChange = (e) => {
@@ -65,11 +66,27 @@ export default function PageEditarUsuario() {
         }));
     };
 
-    const handleSave = (e) => {
+    const handleSave = async (e) => {
         e.preventDefault();
-        // Aquí implementarías la lógica para guardar en la base de datos
-        alert(`Usuario ${userData.nombre} actualizado correctamente`);
-        window.location.href = "/admin";
+        try {
+            const body = {
+                nombre: userData.nombre,
+                email: userData.email,
+                telefono: userData.telefono,
+                torre: userData.torre,
+                apartamento: userData.apartamento,
+                estado: userData.estado
+            };
+
+            // Llamada al servicio
+            await useService.updateUser(userData.id, body);
+
+            await Swal.fire({ icon: 'success', title: 'Listo', text: `Usuario ${userData.nombre} actualizado correctamente` });
+            window.location.href = "/admin";
+        } catch (err) {
+            console.error('Error actualizando usuario:', err);
+            Swal.fire({ icon: 'error', title: 'Error', text: typeof err === 'string' ? err : 'No se pudo actualizar el usuario' });
+        }
     };
 
     return (

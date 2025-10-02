@@ -23,7 +23,8 @@ function PageRegistro() {
             <ImgFondo>
                 <img src="/img/imagen.png" alt="Imagen de fondo" className="w-full h-screen object-cover brightness-75" />
                 <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                    <FormRegistro onSave={()=>console.log('Registro exxitoso')} />
+                    {/* handleRegistroExitoso integrado para evitar console.log inline */}
+                    <FormRegistro onSave={() => { alert('Registro exitoso'); window.location.href = '/login'; }} />
                 </div>
             </ImgFondo>
 

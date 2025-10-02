@@ -16,8 +16,8 @@ async function connectDB() {
         if (!process.env.DB_NAME || !process.env.DB_USER) {
             throw new Error("⚠️ Faltan variables de entorno para la conexión a la BD");
         }
-        await sequelize.authenticate();
-        console.log('Conexion a la base de datos establecida exitosamente.✅👌');
+            await sequelize.authenticate();
+            if (process.env.NODE_ENV !== 'production') console.log('Conexion a la base de datos establecida exitosamente.✅👌');
     } catch (error) {
         console.error('No se pudo conectar a la base de datos:', error);
     }

@@ -77,3 +77,7 @@ PageMora_backup.jsx
 # Package locks (opcional, depende de la preferencia del equipo)
 package-lock.json
 .history/
+
+# Dev tools (scripts locales, no trackear)
+backend/dev-tools/
+CHANGES_CLEANUP.md
