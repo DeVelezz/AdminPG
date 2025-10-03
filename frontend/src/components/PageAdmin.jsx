@@ -6,6 +6,8 @@ import BotonSecundary from "./BotonSecundary";
 import ImgFondo from "./ImgFondo";
 import SectionFooter from "./SectionFooter";
 import ModalCrearCobro from "./ModalCrearCobro";
+import { FaPhone } from "react-icons/fa";
+import { SiGmail, SiWhatsapp } from "react-icons/si";
 import { getBadgeColors, getRowBackgroundColor, formatCurrency } from '../utils/estadoUtils';
 import { getToken, isAdmin, clearSession } from '../utils/sessionManager';
 
@@ -19,6 +21,8 @@ export default function PageAdmin() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [showModalCobro, setShowModalCobro] = useState(false);
+    const [showContactMenu, setShowContactMenu] = useState(null);
+    const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
     
     // Verificar que el usuario sea administrador
     useEffect(() => {
@@ -371,8 +375,69 @@ export default function PageAdmin() {
         }
     };
 
+    // Funciones para manejar el menú de contacto
+    const handleContactar = (nombre, telefono, email, accion) => {
+        switch(accion) {
+            case 'llamar':
+                window.open(`tel:${telefono}`);
+                break;
+            case 'email':
+                window.open(`mailto:${email}?subject=Recordatorio de pago pendiente&body=Estimado/a ${nombre},%0A%0ATiene un pago pendiente. Por favor póngase al día con sus cuotas.%0A%0ASaludos,%0AAdministración`);
+                break;
+            case 'whatsapp': {
+                const mensaje = encodeURIComponent(`Hola ${nombre}, te contactamos desde AdminPG.`);
+                window.open(`https://wa.me/57${telefono.replace(/[^0-9]/g, '')}?text=${mensaje}`, '_blank');
+                break;
+            }
+        }
+        setShowContactMenu(null);
+    };
+
+    const handleShowMenu = (menuId, event) => {
+        event.stopPropagation();
+        const rect = event.target.getBoundingClientRect();
+        setMenuPosition({
+            x: rect.left + (rect.width / 2) - 60,
+            y: rect.top + (rect.height / 2) - 60
+        });
+        setShowContactMenu(showContactMenu === menuId ? null : menuId);
+    };
+
+    const ContactMenu = ({ user }) => (
+        <div 
+            className="fixed bg-white border border-gray-300 rounded shadow-lg p-2 z-50" 
+            style={{ 
+                left: menuPosition.x, 
+                top: menuPosition.y 
+            }}
+            onClick={(e) => e.stopPropagation()}
+        >
+            <button
+                className="flex items-center w-full text-left px-3 py-2 hover:bg-gray-300 rounded text-sm"
+                onClick={() => handleContactar(user.nombre, user.telefono, user.email, 'llamar')}
+            >
+                <FaPhone className="mr-2 text-blue-600" />
+                Llamar
+            </button>
+            <button
+                className="flex items-center w-full text-left px-3 py-2 hover:bg-gray-300 rounded text-sm"
+                onClick={() => handleContactar(user.nombre, user.telefono, user.email, 'email')}
+            >
+                <SiGmail className="mr-2 text-red-500" />
+                Gmail
+            </button>
+            <button
+                className="flex items-center w-full text-left px-3 py-2 hover:bg-gray-300 rounded text-sm"
+                onClick={() => handleContactar(user.nombre, user.telefono, user.email, 'whatsapp')}
+            >
+                <SiWhatsapp className="mr-2 text-green-500" />
+                WhatsApp
+            </button>
+        </div>
+    );
+
     return (
-        <div className="w-full flex flex-col min-h-screen relative">
+        <div className="w-full flex flex-col min-h-screen relative" onClick={() => setShowContactMenu(null)}>
             <ImgFondo>
                 <img
                     src="/img/imagen.png"
@@ -697,23 +762,30 @@ export default function PageAdmin() {
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
                                                                             const telefono = user.telefono || '';
-                                                                            if (!telefono) {
+                                                                            const email = user.email || '';
+                                                                            
+                                                                            if (!telefono && !email) {
                                                                                 Swal.fire({
                                                                                     icon: 'warning',
-                                                                                    title: 'Sin teléfono',
-                                                                                    text: `${user.nombre} no tiene teléfono registrado`,
+                                                                                    title: 'Sin datos de contacto',
+                                                                                    text: `${user.nombre} no tiene teléfono ni email registrado`,
                                                                                     confirmButtonColor: '#3b82f6'
                                                                                 });
                                                                                 return;
                                                                             }
-                                                                            // Abrir WhatsApp
-                                                                            const mensaje = encodeURIComponent(`Hola ${user.nombre}, te contactamos desde AdminPG.`);
-                                                                            window.open(`https://wa.me/57${telefono}?text=${mensaje}`, '_blank');
+                                                                            
+                                                                            // Mostrar menú de contacto
+                                                                            handleShowMenu(`contact-${user.id}`, e);
                                                                         }}
-                                                                        title="Contactar por WhatsApp"
+                                                                        title="Contactar residente"
                                                                     >
                                                                         Contactar
                                                                     </button>
+                                                                    
+                                                                    {/* Menú desplegable de contacto */}
+                                                                    {showContactMenu === `contact-${user.id}` && (
+                                                                        <ContactMenu user={user} />
+                                                                    )}
                                                                     
                                                                     {/* Botón Eliminar */}
                                                                     <button
