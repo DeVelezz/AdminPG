@@ -82,15 +82,27 @@ exports.registrarPagoAdmin = async (req, res) => {
             if (process.env.NODE_ENV !== 'production') console.log('👨‍💼 Registrando pago por administrador:', {
                 servicioId,
                 metodoPago,
-                adminId
+                adminId,
+                userRole: req.user.rol,
+                userRoleAlt: req.user.role,
+                userObject: JSON.stringify(req.user)
             });
 
         // Verificar que el usuario sea admin (aceptar sinónimos)
-        const rolUsuario = String(req.user.rol || '').toLowerCase();
+        const rolUsuario = String(req.user.rol || req.user.role || '').toLowerCase();
         const rolesAdminAceptados = ['administrador', 'admin', 'administrator'];
+        
+        console.log('🔍 Verificando permisos:', {
+            rolDetectado: rolUsuario,
+            rolesAceptados: rolesAdminAceptados,
+            esAdmin: rolesAdminAceptados.includes(rolUsuario)
+        });
+        
         if (!rolesAdminAceptados.includes(rolUsuario)) {
+            console.error('❌ Acceso denegado. Rol del usuario:', rolUsuario, 'Esperado:', rolesAdminAceptados);
             return res.status(403).json({ 
-                error: 'No tienes permisos para realizar esta acción' 
+                error: 'No tienes permisos para realizar esta acción',
+                debug: process.env.NODE_ENV !== 'production' ? { rolDetectado: rolUsuario, user: req.user } : undefined
             });
         }
 
@@ -108,22 +120,90 @@ exports.registrarPagoAdmin = async (req, res) => {
             return res.status(400).json({ error: 'Método de pago no permitido para administrador' });
         }
 
-        // Actualizar el servicio con los datos del pago
-        const updatePayload = {
+        // Verificar si es un pago parcial
+        const montoPagado = monto !== undefined && monto !== null && monto !== '' ? Number(monto) : servicio.monto;
+        const montoOriginal = servicio.monto;
+        
+        if (isNaN(montoPagado) || montoPagado <= 0) {
+            return res.status(400).json({ error: 'Monto de pago inválido' });
+        }
+
+        if (montoPagado > montoOriginal) {
+            return res.status(400).json({ error: 'El monto pagado no puede ser mayor al monto del servicio' });
+        }
+
+        // Si es pago parcial, crear un nuevo servicio con el saldo pendiente
+        if (montoPagado < montoOriginal) {
+            if (process.env.NODE_ENV !== 'production') console.log('💰 Pago parcial detectado. Original:', montoOriginal, 'Pagado:', montoPagado, 'Saldo:', montoOriginal - montoPagado);
+            
+            try {
+                // Actualizar el servicio original con el monto pagado
+                await servicio.update({
+                    fecha_pago: fechaPago,
+                    metodo_pago: metodoPago,
+                    notas: notas,
+                    monto: montoPagado
+                });
+
+                // Crear nuevo servicio con el saldo pendiente
+                const saldoPendiente = montoOriginal - montoPagado;
+                const nuevoServicio = await Servicio.create({
+                    nombre: servicio.nombre,
+                    descripcion: servicio.descripcion ? `${servicio.descripcion} (Saldo pendiente)` : 'Saldo pendiente',
+                    monto: saldoPendiente,
+                    fecha_generacion: servicio.fecha_generacion || new Date(),
+                    fecha_vencimiento: servicio.fecha_vencimiento,
+                    numero_factura: servicio.numero_factura ? `${servicio.numero_factura}-SP` : null,
+                    fecha_pago: null,
+                    metodo_pago: null,
+                    referencia: null,
+                    residente_id: servicio.residente_id,
+                    notas: `Saldo pendiente de ${servicio.nombre} (Pago original: $${montoPagado})`
+                });
+
+                if (process.env.NODE_ENV !== 'production') console.log('✅ Pago parcial registrado. Nuevo servicio creado con ID:', nuevoServicio.id, 'Saldo:', saldoPendiente);
+
+                return res.json({
+                    success: true,
+                    msg: 'Pago parcial registrado exitosamente',
+                    pagoParcial: true,
+                    montoPagado: montoPagado,
+                    saldoPendiente: saldoPendiente,
+                    servicio: {
+                        id: servicio.id,
+                        nombre: servicio.nombre,
+                        monto: servicio.monto,
+                        fecha_pago: servicio.fecha_pago,
+                        metodo_pago: servicio.metodo_pago
+                    },
+                    nuevoServicio: {
+                        id: nuevoServicio.id,
+                        nombre: nuevoServicio.nombre,
+                        monto: nuevoServicio.monto,
+                        fecha_vencimiento: nuevoServicio.fecha_vencimiento
+                    }
+                });
+            } catch (errorParcial) {
+                console.error('❌ Error al crear servicio de saldo pendiente:', errorParcial);
+                // Si falla la creación del saldo pendiente, revertir el pago
+                await servicio.update({
+                    fecha_pago: null,
+                    metodo_pago: null,
+                    notas: null,
+                    monto: montoOriginal
+                });
+                throw new Error(`Error al crear servicio de saldo pendiente: ${errorParcial.message}`);
+            }
+        }
+
+        // Pago completo - actualizar el servicio normalmente
+        await servicio.update({
             fecha_pago: fechaPago,
             metodo_pago: metodoPago,
             notas: notas
-        };
-        // Si el admin envía un monto (pago parcial o distinto), actualizarlo también
-        if (monto !== undefined && monto !== null && monto !== '') {
-            // intentar convertir a número
-            const montoNum = Number(monto);
-            if (!isNaN(montoNum)) updatePayload.monto = montoNum;
-        }
+        });
 
-        await servicio.update(updatePayload);
-
-            if (process.env.NODE_ENV !== 'production') console.log('✅ Pago registrado exitosamente por admin');
+        if (process.env.NODE_ENV !== 'production') console.log('✅ Pago completo registrado exitosamente por admin');
 
         return res.json({
             success: true,

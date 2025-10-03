@@ -11,8 +11,22 @@ exports.createServicio = async (req, res) => {
             fecha_vencimiento, 
             numero_factura,
             residente_id,
+            residente_ids, // Nuevo: array de IDs de residentes
             aplicarATodos 
         } = req.body;
+
+        console.log('📥 Crear servicio - Datos recibidos:', {
+            nombre,
+            monto,
+            fecha_generacion,
+            fecha_vencimiento,
+            numero_factura,
+            residente_id,
+            residente_ids,
+            aplicarATodos,
+            residente_ids_type: Array.isArray(residente_ids),
+            residente_ids_length: residente_ids?.length
+        });
 
         // Validar campos requeridos
         if (!nombre || !monto || !fecha_generacion || !fecha_vencimiento) {
@@ -49,11 +63,58 @@ exports.createServicio = async (req, res) => {
             });
         }
 
-        // Si se aplica a un residente específico
+        // Si se aplica a múltiples residentes específicos (nuevo)
+        if (residente_ids && Array.isArray(residente_ids) && residente_ids.length > 0) {
+            console.log('✅ Creando servicios para múltiples residentes:', residente_ids);
+            
+            // Verificar que todos los residentes existen
+            const residentesExistentes = await Residente.findAll({
+                where: {
+                    id: residente_ids
+                }
+            });
+            
+            console.log(`  ℹ️ Residentes encontrados en BD: ${residentesExistentes.length} de ${residente_ids.length}`);
+            
+            if (residentesExistentes.length === 0) {
+                console.error('  ❌ Ninguno de los residentes existe en la BD');
+                return res.status(400).json({ 
+                    success: false, 
+                    message: "Ninguno de los residentes seleccionados existe en la base de datos" 
+                });
+            }
+            
+            const servicios = await Promise.all(
+                residentesExistentes.map((residente) => {
+                    console.log(`  → Creando servicio para residente ID: ${residente.id} (${residente.nombre || 'sin nombre'})`);
+                    return Servicio.create({
+                        nombre,
+                        monto,
+                        fecha_generacion,
+                        fecha_vencimiento,
+                        numero_factura: numero_factura ? `${numero_factura}-${residente.id}` : null,
+                        residente_id: residente.id,
+                        fecha_pago: null,
+                        metodo_pago: null,
+                        referencia: null
+                    });
+                })
+            );
+
+            console.log(`✅ ${servicios.length} servicio(s) creado(s) exitosamente`);
+
+            return res.status(201).json({ 
+                success: true, 
+                message: `Servicio creado para ${servicios.length} residente(s)`, 
+                data: servicios 
+            });
+        }
+
+        // Si se aplica a un residente específico (legacy, mantener compatibilidad)
         if (!residente_id) {
             return res.status(400).json({ 
                 success: false, 
-                message: "Debe especificar un residente o aplicar a todos" 
+                message: "Debe especificar al menos un residente o aplicar a todos" 
             });
         }
 

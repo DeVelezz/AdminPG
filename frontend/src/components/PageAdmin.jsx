@@ -105,7 +105,8 @@ export default function PageAdmin() {
             const normalized = usersFromApi.map(u => {
                 // This endpoint already returns consolidated fields (deudaTotal, estado, ultimoVencimiento)
                 return {
-                    id: u.id,
+                    id: u.residente_id || u.propiedad_id || u.id, // ✅ Usar residente_id como ID principal
+                    usuario_id: u.id, // ID del usuario (tabla usuarios)
                     nombre: u.nombre || '',
                     email: u.email || '',
                     torre: u.torre || '',
@@ -114,7 +115,8 @@ export default function PageAdmin() {
                     estado: u.estado || 'Al dia',
                     deudaTotal: typeof u.deudaTotal === 'number' ? u.deudaTotal : parseFloat(u.deudaTotal || 0),
                     ultimoVencimiento: u.ultimoVencimiento || null,
-                    propiedad_id: u.propiedad_id || null
+                    propiedad_id: u.propiedad_id || null,
+                    residente_id: u.residente_id || u.propiedad_id || null // ✅ ID real de la tabla residentes
                 };
             });
 
@@ -327,6 +329,13 @@ export default function PageAdmin() {
             await loadUsers();
             setShowEditModal(false);
             setEditForm(null);
+            
+            // Notificar a otras pestañas que se ha actualizado un usuario
+            localStorage.setItem('userUpdated', JSON.stringify({
+                userId: editForm.id,
+                timestamp: Date.now()
+            }));
+            
             Swal.fire({ icon: 'success', title: 'Guardado', text: 'Usuario actualizado correctamente', timer: 1600 });
 
         } catch (error) {
@@ -827,7 +836,7 @@ export default function PageAdmin() {
                 {showEditModal && editForm && (
                     <div className="fixed inset-0 flex items-center justify-center z-50">
                         <div className="absolute inset-0 bg-cover bg-center brightness-75" style={{ backgroundImage: `url('${new URL('/img/imagen.png', import.meta.url).href}')`, backgroundColor: '#0b1220' }} aria-hidden="true" />
-                        <div className="relative z-10 bg-white rounded-lg p-6 w-96 shadow-2xl">
+                        <div className="relative z-10 bg-white rounded-lg p-6 w-full max-w-xl shadow-2xl">
                             <h3 className="text-lg font-semibold mb-4">Editar Usuario</h3>
 
                             <div className="space-y-3">

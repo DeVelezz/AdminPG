@@ -17,6 +17,13 @@ const getTabId = () => {
 export const saveSession = (token, usuario) => {
     const tabId = getTabId();
     
+    console.log('💾 Guardando sesión:', {
+        tabId,
+        usuario: usuario?.nombre,
+        rol: usuario?.rol || usuario?.role,
+        tokenLength: token?.length
+    });
+    
     // Guardar en sessionStorage (específico de esta pestaña)
     sessionStorage.setItem(`token_${tabId}`, token);
     sessionStorage.setItem(`usuario_${tabId}`, JSON.stringify(usuario));
@@ -65,7 +72,28 @@ export const getSession = () => {
 // Obtener solo el token
 export const getToken = () => {
     const session = getSession();
-    return session ? session.token : null;
+    const token = session ? session.token : null;
+    
+    // Verificar que el token corresponda al usuario en sesión
+    if (token && session?.usuario) {
+        try {
+            // Decodificar el token para verificar que coincida con el usuario
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const decoded = JSON.parse(window.atob(base64));
+            
+            // Si el ID del usuario en el token no coincide con el ID del usuario en sesión, limpiar
+            if (decoded.id !== session.usuario.id) {
+                console.warn('⚠️ Token no coincide con el usuario en sesión. Limpiando sesión...');
+                clearSession();
+                return null;
+            }
+        } catch (e) {
+            console.error('Error verificando token:', e);
+        }
+    }
+    
+    return token;
 };
 
 // Obtener solo el usuario

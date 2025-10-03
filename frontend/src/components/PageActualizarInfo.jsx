@@ -55,12 +55,29 @@ export default function PageActualizarInfo() {
             if (form.nueva) body.password = form.nueva;
 
             await useService.updateUser(id, body);
-            Swal.fire({ icon: 'success', title: 'Listo', text: 'Información actualizada correctamente.' });
             
             // actualizar sesión con los nuevos datos
             const updatedUser = { ...u, nombre: form.nombre, email: form.email, telefono: form.telefono };
             const currentToken = localStorage.getItem('token'); // Mantener el token actual
             saveSession(currentToken, updatedUser);
+            
+            // Notificar a otras pestañas que se ha actualizado el usuario
+            localStorage.setItem('userUpdated', JSON.stringify({
+                userId: id,
+                timestamp: Date.now()
+            }));
+            
+            // Mostrar mensaje de éxito y redirigir
+            await Swal.fire({ 
+                icon: 'success', 
+                title: 'Listo', 
+                text: 'Información actualizada correctamente.',
+                timer: 1500,
+                showConfirmButton: false
+            });
+            
+            // Redirigir a la página de admin
+            window.location.href = '/admin';
         } catch (err) {
             console.error('Error actualizando info:', err);
             Swal.fire({ icon: 'error', title: 'Error', text: typeof err === 'string' ? err : 'No se pudo actualizar la información.' });
@@ -85,8 +102,8 @@ export default function PageActualizarInfo() {
                     />
 
                     {/* FORMULARIO CENTRADO SIN SCROLL */}
-                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                        <div className="bg-white p-8 rounded-lg shadow-lg w-112">
+                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[30vw] max-w-xl">
+                        <div className="bg-white p-8 rounded-lg shadow-lg w-full">
                             <h2 className="text-2xl font-semibold text-center text-gray-700 mb-8">Editar Perfil</h2>
                             <form onSubmit={handleSubmit}>
                                 {/* Paso 1: Datos personales */}

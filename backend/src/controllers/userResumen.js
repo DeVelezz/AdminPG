@@ -95,6 +95,7 @@ exports.getUsuariosConResumen = async (req, res) => {
                 apartamento: r.apartamento || null,
                 telefono: r.telefono || null,
                 propiedad_id: r.id || null,
+                residente_id: r.id || null, // ✅ ID real de la tabla residentes
                 deudaTotal: deuda,
                 ultimoVencimiento: ultimoVencimientoFinal,
                 estado

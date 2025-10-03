@@ -5,23 +5,24 @@ import Swal from 'sweetalert2';
 export default function ModalCrearCobro({ isOpen, onClose, residentes = [], onCobroCreado = () => {} }) {
     const [formData, setFormData] = useState({
         nombre: '',
+        otroServicio: '',
         monto: '',
         fecha_generacion: new Date().toISOString().split('T')[0],
         fecha_vencimiento: '',
         numero_factura: '',
-        residente_id: '',
+        residente_ids: [], // Cambiar de residente_id a residente_ids (array)
         aplicarATodos: false
     });
 
     const [loading, setLoading] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
     const serviciosPreestablecidos = [
         { value: 'Administración', label: 'Administración' },
-        { value: 'Agua', label: 'Agua' },
-        { value: 'Luz', label: 'Luz' },
-        { value: 'Gas', label: 'Gas' },
         { value: 'Parqueadero', label: 'Parqueadero' },
         { value: 'Multa', label: 'Multa' },
+        { value: 'Mantenimiento', label: 'Mantenimiento' },
         { value: 'Otro', label: 'Otro' }
     ];
 
@@ -29,22 +30,69 @@ export default function ModalCrearCobro({ isOpen, onClose, residentes = [], onCo
         if (!isOpen) {
             setFormData({
                 nombre: '',
+                otroServicio: '',
                 monto: '',
                 fecha_generacion: new Date().toISOString().split('T')[0],
                 fecha_vencimiento: '',
                 numero_factura: '',
-                residente_id: '',
+                residente_ids: [],
                 aplicarATodos: false
             });
+            setSearchTerm('');
+            setIsDropdownOpen(false);
         }
     }, [isOpen]);
 
-    const handleChange = (e) => {
-        const { name, value, type, checked } = e.target;
+    // Filtrar residentes según el término de búsqueda
+    const residentesFiltrados = residentes.filter(residente => {
+        const searchLower = searchTerm.toLowerCase();
+        return residente.nombre?.toLowerCase().includes(searchLower) ||
+               residente.torre?.toLowerCase().includes(searchLower) ||
+               residente.apartamento?.toLowerCase().includes(searchLower);
+    });
+
+    // Manejar selección/deselección de residente
+    const toggleResidente = (residenteId) => {
+        setFormData(prev => {
+            const isSelected = prev.residente_ids.includes(residenteId);
+            return {
+                ...prev,
+                residente_ids: isSelected 
+                    ? prev.residente_ids.filter(id => id !== residenteId)
+                    : [...prev.residente_ids, residenteId]
+            };
+        });
+    };
+
+    // Seleccionar/deseleccionar todos los filtrados
+    const toggleTodos = () => {
+        const todosFiltradosIds = residentesFiltrados.map(r => r.id);
+        const todosSeleccionados = todosFiltradosIds.every(id => formData.residente_ids.includes(id));
+        
         setFormData(prev => ({
             ...prev,
-            [name]: type === 'checkbox' ? checked : value
+            residente_ids: todosSeleccionados 
+                ? prev.residente_ids.filter(id => !todosFiltradosIds.includes(id))
+                : [...new Set([...prev.residente_ids, ...todosFiltradosIds])]
         }));
+    };
+
+    const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        
+        // Manejar selección múltiple de residentes
+        if (name === 'residente_ids') {
+            const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
+            setFormData(prev => ({
+                ...prev,
+                residente_ids: selectedOptions
+            }));
+        } else {
+            setFormData(prev => ({
+                ...prev,
+                [name]: type === 'checkbox' ? checked : value
+            }));
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -60,11 +108,21 @@ export default function ModalCrearCobro({ isOpen, onClose, residentes = [], onCo
             return;
         }
 
-        if (!formData.aplicarATodos && !formData.residente_id) {
+        if (formData.nombre === 'Otro' && !formData.otroServicio.trim()) {
             await Swal.fire({
                 icon: 'warning',
-                title: 'Selecciona un residente',
-                text: 'Debes seleccionar un residente o aplicar a todos',
+                title: 'Especifica el servicio',
+                text: 'Debes especificar qué tipo de servicio es',
+                timer: 2000
+            });
+            return;
+        }
+
+        if (!formData.aplicarATodos && formData.residente_ids.length === 0) {
+            await Swal.fire({
+                icon: 'warning',
+                title: 'Selecciona al menos un residente',
+                text: 'Debes seleccionar al menos un residente o aplicar a todos',
                 timer: 2000
             });
             return;
@@ -74,6 +132,16 @@ export default function ModalCrearCobro({ isOpen, onClose, residentes = [], onCo
             setLoading(true);
             const token = localStorage.getItem('token');
 
+            // Si seleccionó "Otro", usar el valor de otroServicio
+            const nombreFinal = formData.nombre === 'Otro' ? formData.otroServicio : formData.nombre;
+
+            const payload = {
+                ...formData,
+                nombre: nombreFinal
+            };
+            
+            console.log('📤 Enviando cobro con datos:', payload);
+
             const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
             const response = await fetch(`${API_URL}/servicios`, {
                 method: 'POST',
@@ -81,10 +149,16 @@ export default function ModalCrearCobro({ isOpen, onClose, residentes = [], onCo
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(formData)
+                body: JSON.stringify(payload)
             });
 
             const data = await response.json();
+            
+            console.log('📥 Respuesta del backend:', {
+                status: response.status,
+                ok: response.ok,
+                data: data
+            });
 
             if (!response.ok) {
                 throw new Error(data.message || 'Error al crear el cobro');
@@ -97,6 +171,16 @@ export default function ModalCrearCobro({ isOpen, onClose, residentes = [], onCo
                 timer: 2000,
                 timerProgressBar: true
             });
+
+            // Notificar a otras pestañas/componentes que se creó un cobro
+            const cobroEvent = {
+                timestamp: Date.now(),
+                residentes: formData.residente_ids.length > 0 ? formData.residente_ids : 'todos'
+            };
+            localStorage.setItem('cobroCreado', JSON.stringify(cobroEvent));
+            
+            // También disparar un custom event para la misma pestaña
+            window.dispatchEvent(new CustomEvent('cobroCreado', { detail: cobroEvent }));
 
             onCobroCreado();
             onClose();
@@ -130,7 +214,7 @@ export default function ModalCrearCobro({ isOpen, onClose, residentes = [], onCo
                 aria-hidden="true"
             />
 
-            <div className="relative z-10 bg-white rounded-lg p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="relative z-10 bg-white rounded-lg p-6 w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
                 <h3 className="text-xl font-bold mb-4 text-gray-800">Crear Nuevo Cobro</h3>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -149,6 +233,22 @@ export default function ModalCrearCobro({ isOpen, onClose, residentes = [], onCo
                             ))}
                         </select>
                     </div>
+
+                    {/* Campo condicional: Si selecciona "Otro", mostrar input para especificar */}
+                    {formData.nombre === 'Otro' && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Especificar servicio *</label>
+                            <input 
+                                type="text" 
+                                name="otroServicio" 
+                                value={formData.otroServicio} 
+                                onChange={handleChange} 
+                                placeholder="Ej: Reparación de fachada"
+                                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
+                            />
+                        </div>
+                    )}
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Monto *</label>
@@ -183,18 +283,108 @@ export default function ModalCrearCobro({ isOpen, onClose, residentes = [], onCo
 
                     {!formData.aplicarATodos && (
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Seleccionar residente *</label>
-                            <select name="residente_id" value={formData.residente_id} onChange={handleChange}
-                                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                required={!formData.aplicarATodos}>
-                                <option value="">Selecciona un residente</option>
-                                {residentes.map((residente, idx) => {
-                                    const keyId = residente.residente_id ?? residente.id ?? residente.propiedad_id ?? idx;
-                                    return (
-                                        <option key={keyId} value={keyId}>{residente.nombre} - Torre {residente.torre} Apto {residente.apartamento}</option>
-                                    );
-                                })}
-                            </select>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Seleccionar residentes *
+                            </label>
+                            
+                            {/* Botón para desplegar/cerrar el dropdown */}
+                            <button
+                                type="button"
+                                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-left bg-white flex justify-between items-center"
+                            >
+                                <span className="text-gray-700">
+                                    {formData.residente_ids.length === 0 
+                                        ? 'Selecciona residentes...' 
+                                        : `${formData.residente_ids.length} residente(s) seleccionado(s)`}
+                                </span>
+                                <svg 
+                                    className={`w-5 h-5 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} 
+                                    fill="none" 
+                                    stroke="currentColor" 
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+
+                            {/* Dropdown desplegable */}
+                            {isDropdownOpen && (
+                                <div className="mt-2 border border-gray-300 rounded bg-white shadow-lg max-h-80 overflow-hidden">
+                                    {/* Buscador */}
+                                    <div className="p-2 border-b border-gray-200 bg-gray-50">
+                                        <input
+                                            type="text"
+                                            placeholder="Buscar por nombre, torre o apartamento..."
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                        />
+                                    </div>
+
+                                    {/* Opción para seleccionar todos */}
+                                    <div className="p-2 border-b border-gray-200 bg-gray-50">
+                                        <label className="flex items-center cursor-pointer hover:bg-gray-100 p-1 rounded">
+                                            <input
+                                                type="checkbox"
+                                                checked={residentesFiltrados.length > 0 && residentesFiltrados.every(r => {
+                                                    const keyId = r.residente_id ?? r.id ?? r.propiedad_id;
+                                                    return formData.residente_ids.includes(keyId);
+                                                })}
+                                                onChange={toggleTodos}
+                                                className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                            />
+                                            <span className="text-sm font-medium text-gray-700">
+                                                Seleccionar todos ({residentesFiltrados.length})
+                                            </span>
+                                        </label>
+                                    </div>
+
+                                    {/* Lista de residentes con checkboxes */}
+                                    <div className="max-h-60 overflow-y-auto">
+                                        {residentesFiltrados.length === 0 ? (
+                                            <div className="p-4 text-center text-gray-500 text-sm">
+                                                No se encontraron residentes
+                                            </div>
+                                        ) : (
+                                            <div className="pb-2">
+                                                {residentesFiltrados.map((residente) => {
+                                                    const keyId = residente.id;
+                                                    const isSelected = formData.residente_ids.includes(keyId);
+                                                    
+                                                    return (
+                                                        <label 
+                                                            key={keyId} 
+                                                            className="flex items-center cursor-pointer hover:bg-blue-50 p-2 border-b border-gray-100 last:border-b-0"
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isSelected}
+                                                                onChange={() => toggleResidente(keyId)}
+                                                                className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                                            />
+                                                            <div className="flex-1">
+                                                                <div className="text-sm font-medium text-gray-900">
+                                                                    {residente.nombre}
+                                                                </div>
+                                                                <div className="text-xs text-gray-500">
+                                                                    Torre {residente.torre} - Apto {residente.apartamento}
+                                                                </div>
+                                                            </div>
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {formData.residente_ids.length > 0 && (
+                                <p className="text-xs text-gray-600 mt-1">
+                                    {formData.residente_ids.length} residente(s) seleccionado(s)
+                                </p>
+                            )}
                         </div>
                     )}
 

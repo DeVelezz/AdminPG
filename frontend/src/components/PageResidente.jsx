@@ -187,8 +187,6 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
                 (arrServ || []).forEach(s => { if (s && s.id !== undefined) mapa.set(String(s.id), s); });
                 (arrHist || []).forEach(s => { if (s && s.id !== undefined) mapa.set(String(s.id), s); });
                 servicios = Array.from(mapa.values());
-                
-                console.log('✅ Servicios combinados:', servicios.length);
             } else {
                 serviciosUrl = `${API_URL}/servicios/residente/${residenteId}`;
                 if (typeof window !== 'undefined' && window.DEBUG) console.log('ℹ️ Cargando servicios por residente:', residenteId, 'URL:', serviciosUrl);
@@ -222,6 +220,90 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
     useEffect(() => {
         cargarServicios();
     }, [cargarServicios, usuarioLogueado, residenteData]);
+    
+    // Escuchar cambios en localStorage para detectar actualizaciones de usuario
+    useEffect(() => {
+        const handleStorageChange = async (e) => {
+            if (e.key === 'userUpdated' && e.newValue) {
+                const updateData = JSON.parse(e.newValue);
+                const currentUser = getUsuario();
+                
+                // Si el usuario actualizado es el usuario actual, recargar datos
+                if (currentUser && currentUser.id === updateData.userId) {
+                    console.log('🔄 Detectado cambio en el usuario actual, recargando datos...');
+                    
+                    try {
+                        // Obtener datos actualizados del usuario desde el servidor
+                        const token = getToken();
+                        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+                        const response = await fetch(`${API_URL}/usuarios/${updateData.userId}`, {
+                            headers: {
+                                'Content-Type': 'application/json',
+                                ...(token ? { Authorization: `Bearer ${token}` } : {})
+                            }
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            const updatedUser = data.data || data;
+                            
+                            // Actualizar sessionStorage con los nuevos datos
+                            const { saveSession } = await import('../utils/sessionManager');
+                            saveSession(token, updatedUser);
+                            
+                            // Actualizar el estado local
+                            setUsuarioLogueado(updatedUser);
+                        }
+                    } catch (error) {
+                        console.error('Error actualizando datos del usuario:', error);
+                    }
+                    
+                    // Recargar servicios
+                    cargarServicios();
+                    
+                    // Mostrar notificación
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Datos actualizados',
+                        text: 'Tu información ha sido actualizada por un administrador',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                }
+            }
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+        
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+        };
+    }, [cargarServicios]);
+    
+    // Escuchar cuando se crea un nuevo cobro para recargar servicios
+    useEffect(() => {
+        // Handler para storage event (otras pestañas)
+        const handleCobroCreado = (e) => {
+            if (e.key === 'cobroCreado' && e.newValue) {
+                console.log('🔔 Nuevo cobro detectado (storage), recargando servicios...');
+                setTimeout(() => cargarServicios(), 500); // Pequeño delay para asegurar que la BD se actualizó
+            }
+        };
+
+        // Handler para custom event (misma pestaña)
+        const handleCobroCreatedEvent = () => {
+            console.log('🔔 Nuevo cobro detectado (custom event), recargando servicios...');
+            setTimeout(() => cargarServicios(), 500); // Pequeño delay para asegurar que la BD se actualizó
+        };
+
+        window.addEventListener('storage', handleCobroCreado);
+        window.addEventListener('cobroCreado', handleCobroCreatedEvent);
+        
+        return () => {
+            window.removeEventListener('storage', handleCobroCreado);
+            window.removeEventListener('cobroCreado', handleCobroCreatedEvent);
+        };
+    }, [cargarServicios]);
     
     
     const formatearFecha = (fecha) => {
@@ -342,6 +424,7 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
     
     // serviciosActuales: los que no están pagados
     const serviciosActuales = serviciosProcesados.filter(s => !(s.is_paid || s.fechaPago || s.fecha_pago));
+    
     // históricos ya se derivan de serviciosProcesados cuando es necesario
     
     // Asegurarse de sumar números (evitar concatenación si monto es string)
@@ -417,6 +500,29 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
         
         try {
             const token = getToken();
+            const usuario = getUsuario();
+            
+            // Decodificar el token JWT para ver qué contiene
+            let tokenDecoded = null;
+            if (token) {
+                try {
+                    const base64Url = token.split('.')[1];
+                    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                    tokenDecoded = JSON.parse(window.atob(base64));
+                } catch (e) {
+                    console.error('Error decodificando token:', e);
+                }
+            }
+            
+            console.log('👤 Usuario actual al registrar pago:');
+            console.log('  - Nombre:', usuario?.nombre);
+            console.log('  - Email:', usuario?.email);
+            console.log('  - Rol (sessionStorage):', usuario?.rol || usuario?.role);
+            console.log('  - Usuario completo:', usuario);
+            console.log('  - Token decodificado:', tokenDecoded);
+            console.log('  - Rol (en token JWT):', tokenDecoded?.rol || tokenDecoded?.role);
+            console.log('  - Tiene token:', !!token);
+            
             const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
             
             const response = await fetch(`${API_URL}/pagos/admin`, {
@@ -455,7 +561,18 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
             await cargarServicios();
             setShowPaymentModal(false);
             setSelectedService(null);
-            Swal.fire({ icon: 'success', title: 'Pago registrado', text: `Servicio: ${selectedService.nombre} — Monto: $${montoPago ? Number(montoPago) : selectedService.monto}`, timer: 2500 });
+            
+            // Mostrar mensaje apropiado según si es pago parcial o completo
+            if (bodyResp && bodyResp.pagoParcial) {
+                Swal.fire({ 
+                    icon: 'success', 
+                    title: 'Pago parcial registrado', 
+                    html: `<b>Monto pagado:</b> $${bodyResp.montoPagado?.toLocaleString('es-CO')}<br><b>Saldo pendiente:</b> $${bodyResp.saldoPendiente?.toLocaleString('es-CO')}<br><br>Se ha creado un nuevo servicio con el saldo pendiente.`,
+                    timer: 4000 
+                });
+            } else {
+                Swal.fire({ icon: 'success', title: 'Pago registrado', text: `Servicio: ${selectedService.nombre} — Monto: $${montoPago ? Number(montoPago) : selectedService.monto}`, timer: 2500 });
+            }
             
         } catch (error) {
             console.error('❌ Error al registrar pago:', error);
@@ -556,17 +673,16 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
     // Si la información viene en la prop/url (por ejemplo cuando venimos desde Mora o Admin), priorizarla.
     residente = {
         ...residente,
-        diasMora: (typeof residente.diasMora === 'number' && residente.diasMora > 0) ? residente.diasMora : diasMora,
-        totalDeuda: (typeof residente.totalDeuda === 'number' && residente.totalDeuda > 0) ? residente.totalDeuda : deudaTotal
+        // Siempre usar los valores calculados actuales basados en serviciosActuales
+        diasMora: diasMora,
+        totalDeuda: deudaTotal
     };
 
     // Calcular estado general del residente ahora que 'residente' está definido / normalizado
     const estadoGeneralResidente = (() => {
-        // Si el backend o la navegación nos pasó un estado ya calculado (ej. 'En mora'), respetarlo.
-        if (residente && residente.estado) return residente.estado;
-
+        // Primero verificar si hay servicios pendientes basándose en serviciosActuales
         // Si no hay servicios actuales (no pagados), está al día
-        if (serviciosActuales.length === 0) return "Pagado";
+        if (serviciosActuales.length === 0) return "Al día";
         
         // Verificar estados de los servicios no pagados (prioridad: En mora > Por vencer > Pendiente)
         const tieneServiciosEnMora = serviciosActuales.some(s => s.estado === "En mora" || s.diasVencimiento < 0);
@@ -576,6 +692,8 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
         if (tieneServiciosEnMora) return "En mora";
         if (tieneServiciosPorVencer) return "Por vencer";
         if (tieneServiciosPendientes) return "Pendiente";
+        
+        // Si llegamos aquí, está al día
         return "Al día";
     })();
     
