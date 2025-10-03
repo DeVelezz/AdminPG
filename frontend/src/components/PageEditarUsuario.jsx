@@ -6,6 +6,7 @@ import Logo from "./Logo";
 import BotonSecundary from "./BotonSecundary";
 import ImgFondo from "./ImgFondo";
 import SectionFooter from "./SectionFooter";
+import { getToken } from '../utils/sessionManager';
 
 export default function PageEditarUsuario() {
     const [userData, setUserData] = useState({
@@ -25,7 +26,7 @@ export default function PageEditarUsuario() {
         const cargarUsuario = async () => {
             if (!userId) return;
             try {
-                const token = localStorage.getItem('token');
+                const token = getToken();
                 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
                 const resp = await fetch(`${API_URL}/usuarios/${userId}`, {
                     headers: {

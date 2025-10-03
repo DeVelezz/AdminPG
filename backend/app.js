@@ -9,7 +9,16 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
-app.use(express.json());
+// Guardar el body RAW para facilitar debug de errores de parseo JSON
+app.use(express.json({
+    verify: (req, res, buf, encoding) => {
+        try {
+            req.rawBody = buf.toString(encoding || 'utf8');
+        } catch (e) {
+            req.rawBody = '';
+        }
+    }
+}));
 
 // Rutas
 app.use('/api', userRoutes);
@@ -52,4 +61,16 @@ app.get('/api/test', (req, res) => {
 
 app.listen(PORT, async () => {
     console.log(`Servidor escuchando http://localhost:${PORT} 🚀`);
+});
+
+// Middleware de manejo de errores: capturar errores de parseo JSON (body-parser)
+app.use((err, req, res, next) => {
+    if (err && err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+        console.error('Error de parseo JSON en la petición:', err.message);
+        console.error('Raw body recibido:', req.rawBody);
+        const payload = { error: 'Malformed JSON' };
+        if (process.env.NODE_ENV !== 'production') payload.rawBody = req.rawBody;
+        return res.status(400).json(payload);
+    }
+    next(err);
 });

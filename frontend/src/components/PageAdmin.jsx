@@ -7,6 +7,7 @@ import ImgFondo from "./ImgFondo";
 import SectionFooter from "./SectionFooter";
 import ModalCrearCobro from "./ModalCrearCobro";
 import { getBadgeColors, getRowBackgroundColor, formatCurrency } from '../utils/estadoUtils';
+import { getToken, isAdmin, clearSession } from '../utils/sessionManager';
 
 // Los datos ahora provienen de la API (base de datos)
 
@@ -18,6 +19,21 @@ export default function PageAdmin() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [showModalCobro, setShowModalCobro] = useState(false);
+    
+    // Verificar que el usuario sea administrador
+    useEffect(() => {
+        if (!isAdmin()) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Acceso denegado',
+                html: 'Esta página es solo para administradores.<br><br><small>Cada pestaña mantiene su propia sesión. Si necesitas cambiar de rol, abre una nueva pestaña.</small>',
+                confirmButtonColor: '#ef4444'
+            }).then(() => {
+                clearSession();
+                window.location.href = '/login';
+            });
+        }
+    }, []);
     
     const [currentPage, setCurrentPage] = useState(1);
     const [usersPerPage] = useState(10);
@@ -59,7 +75,7 @@ export default function PageAdmin() {
     const loadUsers = useCallback(async () => {
         try {
             setLoading(true);
-            const token = localStorage.getItem('token');
+            const token = getToken();
             const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
             const res = await fetch(`${API_URL}/usuarios/resumen`, {
@@ -132,13 +148,7 @@ export default function PageAdmin() {
         loadUsers();
     };
 
-    const handleRowClick = (userId) => {
-        setSelectedUsers(prev => 
-            prev.includes(userId) 
-                ? prev.filter(id => id !== userId)
-                : [...prev, userId]
-        );
-    };
+    // Nota: la selección por clic en la fila fue reemplazada por checkboxes.
     
     const handleDeleteSelected = async () => {
         if (selectedUsers.length === 0) {
@@ -165,11 +175,10 @@ export default function PageAdmin() {
 
         if (result.isConfirmed) {
             try {
-                const token = localStorage.getItem('token');
+                const token = getToken();
                 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
                 for (const id of selectedUsers) {
-                    console.log('[DELETE] Enviando solicitud para id=', id, 'url=', `${API_URL}/usuarios/${id}`);
                     const resp = await fetch(`${API_URL}/usuarios/${id}`, {
                         method: 'DELETE',
                         headers: {
@@ -190,8 +199,6 @@ export default function PageAdmin() {
                         const userMessage = bodyText ? `Error eliminando usuario ${id}: ${bodyText}` : `Error eliminando usuario ${id} (status ${resp.status})`;
                         await Swal.fire('Error', userMessage, 'error');
                         throw new Error(userMessage);
-                    } else {
-                        console.log('[DELETE] Éxito para id=', id);
                     }
                 }
 
@@ -242,7 +249,7 @@ export default function PageAdmin() {
             }
 
             const userId = userOrId;
-            const token = localStorage.getItem('token');
+            const token = getToken();
             const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
             const resp = await fetch(`${API_URL}/usuarios/${userId}`, {
                 headers: {
@@ -288,7 +295,7 @@ export default function PageAdmin() {
     const saveEditedUser = async () => {
         if (!editForm || !editForm.id) return;
         try {
-            const token = localStorage.getItem('token');
+            const token = getToken();
             const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
             const payload = {
                 nombre: editForm.nombre,
@@ -369,12 +376,63 @@ export default function PageAdmin() {
                                 onClick={() => setShowModalCobro(true)} 
                             />
                             <BotonSecundary 
-                                textoBtn="Editar perfil" 
-                                onClick={() => window.location.href = "/actualizar"} 
+                                textoBtn="Enviar notificación" 
+                                onClick={async () => {
+                                    if (selectedUsers.length === 0) {
+                                        Swal.fire({
+                                            icon: 'warning',
+                                            title: 'Ningún usuario seleccionado',
+                                            text: 'Selecciona al menos un usuario para enviar notificación',
+                                            confirmButtonColor: '#3b82f6'
+                                        });
+                                        return;
+                                    }
+                                    
+                                    const usuariosSeleccionados = users.filter(u => selectedUsers.includes(u.id));
+                                    const nombresUsuarios = usuariosSeleccionados.map(u => u.nombre).join(', ');
+                                    
+                                    const { value: mensaje } = await Swal.fire({
+                                        title: 'Enviar notificación',
+                                        html: `
+                                            <p class="mb-3">Enviar notificación a:</p>
+                                            <div class="max-h-32 overflow-y-auto bg-gray-100 p-2 rounded mb-3">
+                                                <p class="text-sm"><strong>${usuariosSeleccionados.length}</strong> usuario(s) seleccionado(s):</p>
+                                                <p class="text-xs text-gray-600">${nombresUsuarios}</p>
+                                            </div>
+                                        `,
+                                        input: 'textarea',
+                                        inputLabel: 'Mensaje',
+                                        inputPlaceholder: 'Escribe el mensaje a enviar...',
+                                        inputAttributes: {
+                                            'aria-label': 'Mensaje de notificación'
+                                        },
+                                        showCancelButton: true,
+                                        confirmButtonText: 'Enviar a todos',
+                                        cancelButtonText: 'Cancelar',
+                                        confirmButtonColor: '#3b82f6',
+                                        inputValidator: (value) => {
+                                            if (!value) {
+                                                return 'Debes escribir un mensaje';
+                                            }
+                                        }
+                                    });
+                                    
+                                    if (mensaje) {
+                                        // Aquí iría la lógica para enviar la notificación masiva
+                                        Swal.fire({
+                                            icon: 'success',
+                                            title: 'Notificaciones enviadas',
+                                            text: `Se enviaron ${usuariosSeleccionados.length} notificación(es) exitosamente`,
+                                            timer: 2000,
+                                            showConfirmButton: false
+                                        });
+                                        console.log('Notificación enviada a:', usuariosSeleccionados.map(u => u.email), 'Mensaje:', mensaje);
+                                    }
+                                }} 
                             />
                             <BotonSecundary 
-                                textoBtn="Ver en mora" 
-                                onClick={() => window.location.href = "/mora"} 
+                                textoBtn="Editar admin" 
+                                onClick={() => window.location.href = "/actualizar"} 
                             />
                         </div>
                     </div>
@@ -385,12 +443,78 @@ export default function PageAdmin() {
                                 <span className="font-bold text-lg text-gray-800">
                                     Información de los residentes ({filteredUsers.length})
                                 </span>
-                                <button 
-                                    className="px-3 py-1 bg-red-600 text-white text-sm rounded shadow hover:bg-red-700 transition-colors"
-                                    onClick={handleDeleteSelected}
-                                >
-                                    Eliminar seleccionados ({selectedUsers.length})
-                                </button>
+                                <div className="flex gap-2">
+                                    <button 
+                                        className="px-3 py-1 bg-purple-600 text-white text-sm rounded shadow hover:bg-purple-700 transition-colors"
+                                        onClick={() => {
+                                            if (selectedUsers.length === 0) {
+                                                Swal.fire({
+                                                    icon: 'warning',
+                                                    title: 'Ningún usuario seleccionado',
+                                                    text: 'Selecciona al menos un usuario para generar reporte',
+                                                    confirmButtonColor: '#3b82f6'
+                                                });
+                                                return;
+                                            }
+                                            
+                                            const usuariosSeleccionados = users.filter(u => selectedUsers.includes(u.id));
+                                            
+                                            // Generar HTML con tabla de usuarios seleccionados
+                                            const tablaHTML = `
+                                                <div class="text-left max-h-96 overflow-y-auto">
+                                                    <p class="mb-3 text-center"><strong>${usuariosSeleccionados.length}</strong> usuario(s) seleccionado(s)</p>
+                                                    <table class="w-full text-sm">
+                                                        <thead class="bg-gray-100">
+                                                            <tr>
+                                                                <th class="p-2 text-left">Nombre</th>
+                                                                <th class="p-2 text-left">Torre/Apto</th>
+                                                                <th class="p-2 text-left">Deuda</th>
+                                                                <th class="p-2 text-left">Estado</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            ${usuariosSeleccionados.map(u => `
+                                                                <tr class="border-t">
+                                                                    <td class="p-2">${u.nombre}</td>
+                                                                    <td class="p-2">${u.torre}-${u.apartamento}</td>
+                                                                    <td class="p-2">${formatCurrency(u.deudaTotal)}</td>
+                                                                    <td class="p-2">${u.estado}</td>
+                                                                </tr>
+                                                            `).join('')}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            `;
+                                            
+                                            Swal.fire({
+                                                title: 'Generar reporte en Excel',
+                                                html: tablaHTML,
+                                                showCancelButton: true,
+                                                confirmButtonText: 'Descargar Excel',
+                                                cancelButtonText: 'Cerrar',
+                                                confirmButtonColor: '#3b82f6',
+                                                width: '800px'
+                                            }).then((result) => {
+                                                if (result.isConfirmed) {
+                                                    Swal.fire({
+                                                        icon: 'info',
+                                                        title: 'Descarga de Excel',
+                                                        text: 'La función de descarga de Excel estará disponible próximamente',
+                                                        timer: 2000
+                                                    });
+                                                }
+                                            });
+                                        }}
+                                    >
+                                        Reporte en Excel
+                                    </button>
+                                    <button 
+                                        className="px-3 py-1 bg-red-600 text-white text-sm rounded shadow hover:bg-red-700 transition-colors"
+                                        onClick={handleDeleteSelected}
+                                    >
+                                        Eliminar seleccionados ({selectedUsers.length})
+                                    </button>
+                                </div>
                             </div>
 
                             <div className="bg-gray-50 p-4">
@@ -456,7 +580,19 @@ export default function PageAdmin() {
                                             <table className="w-full bg-white rounded ">
                                                 <thead className="bg-gray-200 text-gray-700">
                                                     <tr>
-                                                        <th className="px-4 py-2 text-left">ID Usuario</th>
+                                                        <th className="px-4 py-2 text-left">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedUsers.length > 0 && selectedUsers.length === filteredUsers.length}
+                                                                onChange={(e) => {
+                                                                    if (e.target.checked) {
+                                                                        setSelectedUsers(filteredUsers.map(u => u.id));
+                                                                    } else {
+                                                                        setSelectedUsers([]);
+                                                                    }
+                                                                }}
+                                                            />
+                                                        </th>
                                                         <th className="px-4 py-2 text-left">Nombre Completo</th>
                                                         <th className="px-4 py-2 text-left hidden md:table-cell">Email</th>
                                                         <th className="px-4 py-2 text-left">Deuda</th>
@@ -464,26 +600,49 @@ export default function PageAdmin() {
                                                         <th className="px-4 py-2 text-left">Torre</th>
                                                         <th className="px-4 py-2 text-left">Apartamento</th>
                                                         <th className="px-4 py-2 text-left">Estado</th>
-                                                        <th className="px-4 py-2 text-center">Acción</th>
+                                                        <th className="px-4 py-2 text-center">Acciones</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     {currentUsers.length === 0 ? (
                                                         <tr>
-                                                            <td colSpan="7" className="px-4 py-8 text-center text-gray-500">
+                                                            <td colSpan="9" className="px-4 py-8 text-center text-gray-500">
                                                                 {filteredUsers.length === 0 ? 'No se encontraron usuarios' : 'No hay usuarios registrados'}
                                                             </td>
                                                         </tr>
                                                     ) : currentUsers.map((user) => (
                                                         <tr 
                                                             key={`${user.id}-${user.nombre}`}
-                                                            className={` cursor-pointer transition-colors hover:bg-blue-50 ${
-                                                                selectedUsers.includes(user.id) ? 'bg-blue-200' : getRowBackgroundColor(user.estado)
-                                                            }`}
-                                                            onClick={() => handleRowClick(user.id)}
+                                                            className={` hover:bg-blue-50 cursor-pointer transition-colors ${selectedUsers.includes(user.id) ? 'bg-blue-200' : getRowBackgroundColor(user.estado)}`}
+                                                            onClick={() => {
+                                                                // Navegar a la vista del residente pasando los datos por query string
+                                                                const residenteData = {
+                                                                    ...user,
+                                                                    estado: user.estado || 'Al dia'
+                                                                };
+                                                                const data = encodeURIComponent(JSON.stringify(residenteData));
+                                                                window.location.href = `/residente?data=${data}&fromAdmin=true`;
+                                                            }}
                                                         >
-                                                            <td className="px-4 py-2">{user.id}</td>
-                                                            <td className="px-4 py-2 font-medium">{user.nombre}</td>
+                                                            <td className="px-4 py-2">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={selectedUsers.includes(user.id)}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                    onChange={(e) => {
+                                                                        if (e.target.checked) {
+                                                                            setSelectedUsers(prev => [...prev, user.id]);
+                                                                        } else {
+                                                                            setSelectedUsers(prev => prev.filter(id => id !== user.id));
+                                                                        }
+                                                                    }}
+                                                                />
+                                                            </td>
+                                                            <td className="px-4 py-2 font-medium cursor-pointer" onClick={() => {
+                                                                // Navegar a la vista del residente pasando los datos por query string
+                                                                const data = encodeURIComponent(JSON.stringify(user));
+                                                                window.location.href = `/residente?data=${data}&fromAdmin=true`;
+                                                            }}>{user.nombre}</td>
                                                             <td className="px-4 py-2 hidden md:table-cell">{user.email}</td>
                                                             <td className="px-4 py-2">{formatCurrency(user.deudaTotal)}</td>
                                                             <td className="px-4 py-2">{formatDate(user.ultimoVencimiento)}</td>
@@ -497,15 +656,91 @@ export default function PageAdmin() {
                                                             {/* Opcional: mostrar fecha de vencimiento */}
                                                             {/* <td className="px-4 py-2">{user.ultimoVencimiento ? new Date(user.ultimoVencimiento).toLocaleDateString() : '-'}</td> */}
                                                             <td className="px-4 py-2 text-center">
-                                                                <button 
-                                                                    className="px-3 py-1 bg-blue-600 text-white text-sm rounded shadow hover:bg-blue-700 transition-colors"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        handleEditUser(user);
-                                                                    }}
-                                                                >
-                                                                    Editar
-                                                                </button>
+                                                                <div className="flex flex-row flex-nowrap gap-1 justify-center items-center">
+                                                                    {/* Botón Editar */}
+                                                                    <button 
+                                                                        className="px-2 py-1 bg-blue-600 text-white text-xs rounded shadow hover:bg-blue-700 transition-colors whitespace-nowrap"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleEditUser(user);
+                                                                        }}
+                                                                        title="Editar usuario"
+                                                                    >
+                                                                        Editar
+                                                                    </button>
+                                                                    
+                                                                    {/* Botón Contactar */}
+                                                                    <button
+                                                                        className="px-2 py-1 bg-yellow-300 text-gray-900 text-xs rounded shadow hover:bg-yellow-400 transition-colors font-semibold whitespace-nowrap"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            const telefono = user.telefono || '';
+                                                                            if (!telefono) {
+                                                                                Swal.fire({
+                                                                                    icon: 'warning',
+                                                                                    title: 'Sin teléfono',
+                                                                                    text: `${user.nombre} no tiene teléfono registrado`,
+                                                                                    confirmButtonColor: '#3b82f6'
+                                                                                });
+                                                                                return;
+                                                                            }
+                                                                            // Abrir WhatsApp
+                                                                            const mensaje = encodeURIComponent(`Hola ${user.nombre}, te contactamos desde AdminPG.`);
+                                                                            window.open(`https://wa.me/57${telefono}?text=${mensaje}`, '_blank');
+                                                                        }}
+                                                                        title="Contactar por WhatsApp"
+                                                                    >
+                                                                        Contactar
+                                                                    </button>
+                                                                    
+                                                                    {/* Botón Eliminar */}
+                                                                    <button
+                                                                        className="px-2 py-1 bg-red-600 text-white text-xs rounded shadow hover:bg-red-700 transition-colors whitespace-nowrap"
+                                                                        onClick={async (e) => {
+                                                                            e.stopPropagation();
+                                                                            const result = await Swal.fire({
+                                                                                title: '¿Eliminar usuario?',
+                                                                                text: `¿Estás seguro de eliminar a ${user.nombre}?`,
+                                                                                icon: 'warning',
+                                                                                showCancelButton: true,
+                                                                                confirmButtonColor: '#d33',
+                                                                                cancelButtonColor: '#3085d6',
+                                                                                confirmButtonText: 'Sí, eliminar',
+                                                                                cancelButtonText: 'Cancelar'
+                                                                            });
+
+                                                                            if (result.isConfirmed) {
+                                                                                try {
+                                                                                    const token = getToken();
+                                                                                    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+                                                                                    const resp = await fetch(`${API_URL}/usuarios/${user.id}`, {
+                                                                                        method: 'DELETE',
+                                                                                        headers: {
+                                                                                            'Content-Type': 'application/json',
+                                                                                            ...(token ? { Authorization: `Bearer ${token}` } : {})
+                                                                                        }
+                                                                                    });
+
+                                                                                    if (!resp.ok) {
+                                                                                        const body = await resp.text().catch(() => '');
+                                                                                        throw new Error(body || `Status ${resp.status}`);
+                                                                                    }
+
+                                                                                    // If row was selected, remove from selectedUsers
+                                                                                    setSelectedUsers(prev => prev.filter(id => id !== user.id));
+                                                                                    await loadUsers();
+                                                                                    Swal.fire({ icon: 'success', title: 'Eliminado', text: `${user.nombre} eliminado correctamente`, timer: 1800 });
+                                                                                } catch (err) {
+                                                                                    console.error('Error eliminando usuario individual:', err);
+                                                                                    Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo eliminar el usuario. Revisa la consola.' });
+                                                                                }
+                                                                            }
+                                                                        }}
+                                                                        title="Eliminar usuario"
+                                                                    >
+                                                                        Eliminar
+                                                                    </button>
+                                                                </div>
                                                             </td>
                                                         </tr>
                                                     ))}

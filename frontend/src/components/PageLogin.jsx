@@ -9,17 +9,18 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import Form from './Form';
+import { saveSession } from '../utils/sessionManager';
 
 export default function PageLogin({ onLogin }) {
     const navigate = useNavigate();
     const [email, setEmail] = useState('');
-    const [contraseña, setContraseña] = useState('');
+    const [contrasena, setContrasena] = useState('');
 
     const handleSubmit = async (e) => {
         e.preventDefault();
 
         // Validación básica
-        if (!email || !contraseña) {
+    if (!email || !contrasena) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Campos vacíos',
@@ -35,7 +36,7 @@ export default function PageLogin({ onLogin }) {
             const res = await axios.post('http://localhost:5000/api/login', 
                 { 
                     email: email.trim(), 
-                    contraseña: contraseña.trim() 
+                    contrasena: contrasena.trim() 
                 },
                 {
                     headers: {
@@ -44,9 +45,8 @@ export default function PageLogin({ onLogin }) {
                 }
             );
 
-            // Guardar datos en localStorage
-            localStorage.setItem('token', res.data.token);
-            localStorage.setItem('Usuario', JSON.stringify(res.data.usuario));
+            // Guardar datos usando el gestor de sesiones
+            saveSession(res.data.token, res.data.usuario);
 
             // Mostrar mensaje de éxito
             await Swal.fire({
@@ -175,8 +175,8 @@ export default function PageLogin({ onLogin }) {
                                     <label className="block text-sm font-medium text-gray-700 mb-2">Contraseña</label>
                                     <input
                                         type="password"
-                                        value={contraseña}
-                                        onChange={(e) => setContraseña(e.target.value)}
+                                        value={contrasena}
+                                        onChange={(e) => setContrasena(e.target.value)}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         placeholder="Tu contraseña"
                                         required

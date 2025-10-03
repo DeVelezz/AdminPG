@@ -7,7 +7,12 @@ exports.login = async (req, res) => {
     if (process.env.NODE_ENV !== 'production') console.log('📥 Datos recibidos en backend:', req.body);
     
     const { email, contraseña, contrasena, password } = req.body;
-    const pwd = contraseña || contrasena || password;
+    // Aceptar varias variantes: 'contraseña' (con ñ), 'contrasena' y 'password'
+    const pwd = contrasena || contraseña || password;
+
+    if (process.env.NODE_ENV !== 'production' && req.rawBody) {
+        console.log('📦 Raw body recibido en auth.login:', req.rawBody);
+    }
 
     try {
         if (!email || !pwd) {

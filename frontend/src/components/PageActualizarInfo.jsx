@@ -6,6 +6,7 @@ import Logo from "./Logo";
 import BotonSecundary from "./BotonSecundary";
 import ImgFondo from "./ImgFondo";
 import SectionFooter from "./SectionFooter";
+import { getUsuario, saveSession } from '../utils/sessionManager';
 
 export default function PageActualizarInfo() {
     // Estado para los campos y la página actual
@@ -20,9 +21,9 @@ export default function PageActualizarInfo() {
     });
 
     useEffect(() => {
-        // Intentar cargar usuario desde localStorage (guardado en login)
+        // Intentar cargar usuario desde sessionStorage/localStorage
         try {
-            const u = JSON.parse(localStorage.getItem('Usuario'));
+            const u = getUsuario();
             if (u) {
                 setForm(form => ({ ...form, nombre: u.nombre || '', email: u.email || '', telefono: u.telefono || '' }));
             }
@@ -42,7 +43,7 @@ export default function PageActualizarInfo() {
         }
 
         try {
-            const u = JSON.parse(localStorage.getItem('Usuario')) || {};
+            const u = getUsuario() || {};
             const id = u.id;
             if (!id) return Swal.fire({ icon: 'error', title: 'Error', text: 'No hay usuario identificado.' });
 
@@ -55,9 +56,11 @@ export default function PageActualizarInfo() {
 
             await useService.updateUser(id, body);
             Swal.fire({ icon: 'success', title: 'Listo', text: 'Información actualizada correctamente.' });
-            // actualizar localStorage
+            
+            // actualizar sesión con los nuevos datos
             const updatedUser = { ...u, nombre: form.nombre, email: form.email, telefono: form.telefono };
-            localStorage.setItem('Usuario', JSON.stringify(updatedUser));
+            const currentToken = localStorage.getItem('token'); // Mantener el token actual
+            saveSession(currentToken, updatedUser);
         } catch (err) {
             console.error('Error actualizando info:', err);
             Swal.fire({ icon: 'error', title: 'Error', text: typeof err === 'string' ? err : 'No se pudo actualizar la información.' });

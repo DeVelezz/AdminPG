@@ -6,7 +6,13 @@ exports.procesarPagoResidente = async (req, res) => {
     try {
         const { servicioId, metodoPago, referencia, notas, monto } = req.body;
         const usuarioId = req.user.id; // Del token JWT
+        if (process.env.NODE_ENV !== 'production') console.log('💳 procesarPagoResidente request by user:', usuarioId, 'body:', req.body);
 
+        // Verificar que el servicio pertenezca al residente que corresponde al usuario logueado
+        const residenteRecord = await Residente.findOne({ where: { usuario_id: usuarioId } });
+        if (!residenteRecord) {
+            return res.status(403).json({ error: 'Usuario no asociado a residente' });
+        }
             if (process.env.NODE_ENV !== 'production') console.log('💳 Procesando pago de residente:', {
                 servicioId,
                 metodoPago,
@@ -15,6 +21,17 @@ exports.procesarPagoResidente = async (req, res) => {
 
         // Buscar el servicio
         const servicio = await Servicio.findByPk(servicioId);
+        if (process.env.NODE_ENV !== 'production') console.log('🔎 Servicio encontrado para procesarPagoResidente:', servicio ? servicio.toJSON() : null);
+
+        // Verificar que el servicio pertenezca al residente del usuario
+        if (servicio && Number(servicio.residente_id) !== Number(residenteRecord.id)) {
+            return res.status(403).json({ error: 'No tienes permisos para pagar este servicio' });
+        }
+        if (process.env.NODE_ENV !== 'production') console.log('🔎 Servicio encontrado para registrarPagoAdmin:', servicio ? servicio.toJSON() : null, 'residenteId esperado:', req.body.residenteId || null);
+        // Si cliente proporcionó residenteId, verificar coincidencia
+        if (req.body.residenteId && servicio && Number(req.body.residenteId) !== Number(servicio.residente_id)) {
+            return res.status(400).json({ error: 'El servicio no pertenece al residente indicado' });
+        }
         if (!servicio) {
             return res.status(404).json({ error: 'Servicio no encontrado' });
         }
@@ -68,25 +85,43 @@ exports.registrarPagoAdmin = async (req, res) => {
                 adminId
             });
 
-        // Verificar que el usuario sea admin
-        if (req.user.rol !== 'administrador') {
+        // Verificar que el usuario sea admin (aceptar sinónimos)
+        const rolUsuario = String(req.user.rol || '').toLowerCase();
+        const rolesAdminAceptados = ['administrador', 'admin', 'administrator'];
+        if (!rolesAdminAceptados.includes(rolUsuario)) {
             return res.status(403).json({ 
                 error: 'No tienes permisos para realizar esta acción' 
             });
         }
 
-        // Buscar el servicio
-        const servicio = await Servicio.findByPk(servicioId);
+    // Buscar el servicio
+    const servicio = await Servicio.findByPk(servicioId);
+    if (process.env.NODE_ENV !== 'production') console.log('🔎 Servicio encontrado para registrarPagoAdmin:', servicio ? servicio.toJSON() : null, 'residenteId esperado:', req.body.residenteId || null);
         if (!servicio) {
             return res.status(404).json({ error: 'Servicio no encontrado' });
         }
 
+        // Validar método de pago permitido para admin
+        const metodoLower = String(metodoPago || '').toLowerCase();
+        const metodosAdminPermitidos = ['efectivo', 'transferencia'];
+        if (metodoPago && !metodosAdminPermitidos.includes(metodoLower)) {
+            return res.status(400).json({ error: 'Método de pago no permitido para administrador' });
+        }
+
         // Actualizar el servicio con los datos del pago
-        await servicio.update({
+        const updatePayload = {
             fecha_pago: fechaPago,
             metodo_pago: metodoPago,
             notas: notas
-        });
+        };
+        // Si el admin envía un monto (pago parcial o distinto), actualizarlo también
+        if (monto !== undefined && monto !== null && monto !== '') {
+            // intentar convertir a número
+            const montoNum = Number(monto);
+            if (!isNaN(montoNum)) updatePayload.monto = montoNum;
+        }
+
+        await servicio.update(updatePayload);
 
             if (process.env.NODE_ENV !== 'production') console.log('✅ Pago registrado exitosamente por admin');
 
@@ -108,6 +143,36 @@ exports.registrarPagoAdmin = async (req, res) => {
             error: 'Error al registrar el pago',
             detalles: error.message 
         });
+    }
+};
+
+// Deshacer pago (solo admin) - deja fecha_pago, metodo_pago, referencia y notas en null
+exports.deshacerPagoAdmin = async (req, res) => {
+    try {
+        const servicioId = req.params.servicioId;
+        // Verificar rol admin
+        const rolUsuario = String(req.user.rol || '').toLowerCase();
+        const rolesAdminAceptados = ['administrador', 'admin', 'administrator'];
+        if (!rolesAdminAceptados.includes(rolUsuario)) {
+            return res.status(403).json({ error: 'No tienes permisos para realizar esta acción' });
+        }
+
+        const servicio = await Servicio.findByPk(servicioId);
+        if (!servicio) return res.status(404).json({ error: 'Servicio no encontrado' });
+
+        if (process.env.NODE_ENV !== 'production') console.log('🧾 Deshaciendo pago servicio:', servicioId, 'usuario admin:', req.user.id);
+
+        servicio.fecha_pago = null;
+        servicio.metodo_pago = null;
+        servicio.referencia = null;
+        servicio.notas = servicio.notas; // conservar notas si se quiere; dejar igual
+
+        await servicio.save();
+
+        return res.json({ success: true, msg: 'Pago deshecho correctamente', servicio: servicio });
+    } catch (error) {
+        console.error('❌ Error al deshacer pago:', error);
+        return res.status(500).json({ error: 'Error al deshacer pago', detalles: error.message });
     }
 };
 

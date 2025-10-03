@@ -32,16 +32,18 @@ export default function PageMora() {
 
                 // Mapear la respuesta: confiar exclusivamente en `diasVencimiento` y `deudaTotal` devueltos por el backend
                 const procesados = usuarios.map(u => {
+                    const rid = u.residente_id ?? u.residenteId ?? null;
+                    const uid = u.usuario_id ?? u.usuarioId ?? null;
                     return {
-                        key: `u-${u.usuario_id || u.residente_id}`,
+                        key: `u-${rid ?? uid ?? Math.random().toString(36).slice(2,9)}`,
                         nombre: u.nombre || '',
                         torre: u.torre || '',
                         apartamento: u.apartamento || '',
                         concepto: 'Deuda acumulada',
                         monto: Number(u.deudaTotal || u.monto || 0) || 0,
                         deudaTotal: Number(u.deudaTotal || u.monto || 0) || 0,
-                        residente_id: u.residente_id || null,
-                        usuario_id: u.usuario_id || null,
+                        residente_id: rid,
+                        usuario_id: uid,
                         fechaVencimiento: u.ultimoVencimiento || u.fechaVencimiento || null,
                         // Usar directamente el valor calculado por el backend. Si no existe, tratar como 0 (no moroso)
                         diasVencimiento: Number(u.diasVencimiento ?? 0),
@@ -147,6 +149,39 @@ export default function PageMora() {
         </div>
     );
 
+    // Navegación directa al perfil del residente
+    const navigateToResidente = (residente) => {
+        try {
+            const residenteData = {
+                nombre: residente.nombre,
+                apartamento: residente.apartamento,
+                torre: residente.torre,
+                telefono: residente.telefono,
+                email: residente.email,
+                concepto: residente.concepto,
+                monto: residente.monto,
+                deudaTotal: residente.monto,
+                fechaVencimiento: residente.fechaVencimiento,
+                diasVencimiento: residente.diasVencimiento,
+                residente_id: residente.residente_id ?? null,
+                usuario_id: residente.usuario_id ?? null,
+                estado: (Number(residente.diasVencimiento) > 0) ? 'En mora' : (residente.estado || 'Pendiente')
+            };
+
+            const encoded = encodeURIComponent(JSON.stringify(residenteData));
+            const rid = residente.residente_id ?? null;
+            const uid = residente.usuario_id ?? null;
+            const extraParams = `${rid ? `&residente_id=${rid}` : ''}${uid ? `&usuario_id=${uid}` : ''}`;
+            const url = `/residente?fromMora=true&data=${encoded}${extraParams}`;
+
+            // Navegar directamente sin modal
+            window.location.href = url;
+        } catch (err) {
+            console.error('Error navegando a residente:', err);
+            window.location.href = '/residente?fromMora=true';
+        }
+    };
+
     return (
     <div className="min-h-screen flex flex-col relative" onClick={() => setShowContactMenu(null)}>
                 <ImgFondo>
@@ -192,17 +227,27 @@ export default function PageMora() {
                                                     Mostrando <span className="font-semibold">{residentesPagina.length}</span> de <span className="font-semibold">{totalMorosos}</span> morosos
                                                 </div>
                                             </div>
-                                            <table className="w-full bg-white rounded">
+                                            <table className="w-full bg-white rounded table-fixed">
+                                                <colgroup>
+                                                    <col style={{ width: '12.5%' }} />
+                                                    <col style={{ width: '12.5%' }} />
+                                                    <col style={{ width: '12.5%' }} />
+                                                    <col style={{ width: '12.5%' }} />
+                                                    <col style={{ width: '12.5%' }} />
+                                                    <col style={{ width: '12.5%' }} />
+                                                    <col style={{ width: '12.5%' }} />
+                                                    <col style={{ width: '12.5%' }} />
+                                                </colgroup>
                                             <thead>
                                                 <tr className="bg-gray-100">
-                                                    <th className="px-4 py-2">Nombre</th>
-                                                    <th className="px-4 py-2">Torre</th>
-                                                    <th className="px-4 py-2">Apartamento</th>
-                                                    <th className="px-4 py-2">Concepto</th>
-                                                    <th className="px-4 py-2">Monto</th>
-                                                    <th className="px-4 py-2">Fecha Vencimiento</th>
-                                                    <th className="px-4 py-2">Días vencidos</th>
-                                                    <th className="px-4 py-2">Contacto</th>
+                                                    <th className="px-3 py-2 whitespace-nowrap text-left">Nombre</th>
+                                                    <th className="px-16 py-2 whitespace-nowrap text-left">Torre</th>
+                                                    <th className="px-1 py-2 whitespace-nowrap text-left">Apartamento</th>
+                                                       <th className="px-9 py-2 whitespace-nowrap text-left">Concepto</th>
+                                                    <th className="px-17 py-2 whitespace-nowrap text-left">Monto</th>
+                                                    <th className="px-6 py-2 whitespace-nowrap text-left">Fecha Vencimiento</th>
+                                                    <th className="px-14 py-2 whitespace-nowrap text-left">Días vencidos</th>
+                                                    <th className="px-2 py-2 whitespace-nowrap text-center">Contacto</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -210,37 +255,21 @@ export default function PageMora() {
                                                     <tr 
                                                         key={residente.key} 
                                                         className={`hover:bg-gray-50 cursor-pointer transition-colors ${residente.diasVencimiento > 0 ? 'bg-red-100/65' : ''}`}
-                                                        onClick={() => {
-                                                            const residenteData = {
-                                                                nombre: residente.nombre,
-                                                                apartamento: residente.apartamento,
-                                                                torre: residente.torre,
-                                                                telefono: residente.telefono,
-                                                                email: residente.email,
-                                                                concepto: residente.concepto,
-                                                                monto: residente.monto,
-                                                                deudaTotal: residente.monto,
-                                                                fechaVencimiento: residente.fechaVencimiento,
-                                                                diasVencimiento: residente.diasVencimiento,
-                                                                // Asegurar que la navegación refleje 'En mora' cuando días vencidos > 0
-                                                                estado: (Number(residente.diasVencimiento) > 0) ? 'En mora' : (residente.estado || 'Pendiente')
-                                                            };
-                                                            window.location.href = `/residente?fromMora=true&data=${encodeURIComponent(JSON.stringify(residenteData))}`;
-                                                        }}
+                                                        onClick={() => navigateToResidente(residente)}
                                                     >
-                                                        <td className="px-4 py-2 font-semibold text-gray-700">{residente.nombre}</td>
-                                                        <td className="px-4 py-2">{residente.torre}</td>
-                                                        <td className="px-4 py-2">{residente.apartamento}</td>
-                                                        <td className="px-4 py-2">{residente.concepto}</td>
-                                                        <td className="px-4 py-2 font-bold text-blue-700">{formatCurrency(residente.monto)}</td>
-                                                        <td className="px-4 py-2">{residente.fechaVencimiento}</td>
-                                                        <td className="px-4 py-2">
+                                                        <td className="px-3 py-2 font-semibold text-gray-700 whitespace-nowrap text-left">{residente.nombre}</td>
+                                                        <td className="px-20 py- whitespace-nowrap text-left">{residente.torre}</td>
+                                                        <td className="px-10 py-2 whitespace-nowrap text-left">{residente.apartamento}</td>
+                                                        <td className="px-4 py-2 whitespace-nowrap text-left">{residente.concepto}</td>
+                                                        <td className="px-13 py-2 font-bold text-blue-700 whitespace-nowrap text-left">{formatCurrency(residente.monto)}</td>
+                                                        <td className="px-15 py-2 whitespace-nowrap text-left">{residente.fechaVencimiento}</td>
+                                                        <td className="px-22 py-2 whitespace-nowrap text-left">
                                                             {/* Mostrar badge de días en rojo si efectivamente hay días vencidos */}
                                                             <span className={`text-xs px-2 py-1 rounded ${residente.diasVencimiento > 0 ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}>
                                                                 {Math.abs(residente.diasVencimiento)} días
                                                             </span>
                                                         </td>
-                                                        <td className="px-4 py-2 text-center relative">
+                                                        <td className="px-4 py-2 text-center relative whitespace-nowrap">
                                                             <button
                                                                 className="px-3 py-1 bg-blue-600 text-white text-sm rounded shadow hover:bg-blue-700"
                                                                 onClick={(e) => { e.stopPropagation(); handleShowMenu(residente.key, e); }}

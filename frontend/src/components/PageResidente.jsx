@@ -6,6 +6,9 @@ import SectionFooter from "./SectionFooter";
 import React, { useState, useEffect, useCallback } from "react";
 import Swal from 'sweetalert2';
 import { getBadgeColors, getRowBackgroundColor, getUnderlineColor, formatCurrency } from '../utils/estadoUtils';
+import { getToken, getUsuario, clearSession } from '../utils/sessionManager';
+
+// (Se eliminó helper de debug escapeHtml y botón 'Ver JSON' en producción)
 
 export default function PageResidente({ residenteData, isFromMora = false }) {
     const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -16,25 +19,42 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
     const [usuarioLogueado, setUsuarioLogueado] = useState(null);
     const [loading, setLoading] = useState(true);
     
-    // Cargar usuario desde localStorage
+    // Cargar usuario desde sessionStorage/localStorage
     useEffect(() => {
-        const usuarioGuardado = localStorage.getItem('Usuario');
-        if (usuarioGuardado) {
-            try {
-                const usuario = JSON.parse(usuarioGuardado);
-                setUsuarioLogueado(usuario);
-                console.log('✅ Usuario cargado desde localStorage:', usuario);
-            } catch (error) {
-                console.error('❌ Error al cargar usuario:', error);
-            }
+        const usuario = getUsuario();
+        if (usuario) {
+            setUsuarioLogueado(usuario);
+        } else {
+            console.error('❌ Error al cargar usuario');
         }
     }, []);
+
+    // Determinar si el usuario logueado es admin (globalmente en este componente)
+    const role = (usuarioLogueado?.rol || usuarioLogueado?.role || '').toString().toLowerCase();
+    const isAdminGlobal = role === 'admin' || role === 'administrador' || role === 'administrator';
     
     // Función para cargar servicios desde la base de datos (reutilizable)
     const cargarServicios = useCallback(async () => {
         try {
             setLoading(true);
-            const token = localStorage.getItem('token');
+            const token = getToken();
+            
+            // DEBUG: Verificar si el token existe
+            console.log('🔑 Token encontrado:', token ? 'SÍ (longitud: ' + token.length + ')' : 'NO');
+            
+            // Si no hay token, redirigir al login
+            if (!token) {
+                console.error('❌ No se encontró token. Redirigiendo al login...');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Sesión no válida',
+                    text: 'Por favor inicia sesión nuevamente',
+                    confirmButtonColor: '#3b82f6'
+                }).then(() => {
+                    window.location.href = '/login';
+                });
+                return;
+            }
 
             // Obtener el residente_id correcto
             let residenteId;
@@ -44,44 +64,148 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
                 residenteId = usuarioLogueado.residente_id;
             }
 
-            // Si no encontramos residenteId en props o usuario logueado, intentar leerlo desde la query string (navegación desde /mora)
+            // Si no encontramos residenteId en props o usuario logueado, intentar leerlo desde la query string
             if (!residenteId) {
                 try {
                     const urlParams = new URLSearchParams(window.location.search);
-                    const dataParam = urlParams.get('data');
-                    if (dataParam) {
-                        const parsed = JSON.parse(decodeURIComponent(dataParam));
-                        residenteId = parsed.residente_id || parsed.residenteId || parsed.residenteId || parsed.usuario_id || parsed.usuarioId || null;
+                    // Primero, comprobar parámetros directos ?residente_id= o ?usuario_id=
+                    const directResidente = urlParams.get('residente_id') || urlParams.get('residenteId');
+                    const directUsuario = urlParams.get('usuario_id') || urlParams.get('usuarioId');
+                    if (directResidente) {
+                        residenteId = Number(directResidente);
+                    } else if (directUsuario) {
+                        // usar usuario_id como fallback si no hay residente_id
+                        residenteId = Number(directUsuario);
+                    } else {
+                        // Si no hay parámetros directos, intentar extraer del parámetro 'data' codificado
+                        const dataParam = urlParams.get('data');
+                        if (dataParam) {
+                            const parsed = JSON.parse(decodeURIComponent(dataParam));
+                            // aceptar 'id' dentro del objeto serializado (PageMora usa a veces 'id')
+                            residenteId = parsed.residente_id || parsed.residenteId || parsed.id || parsed.usuario_id || parsed.usuarioId || null;
+                            // Si parsed.id parece ser un usuario id pero no un residente id, intentar resolverlo
+                            if (residenteId && parsed.id && !parsed.residente_id) {
+                                // parsed.id puede ser usuario id; si es así, consultamos /api/usuarios/:id para obtener residente_id
+                                try {
+                                    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+                                    const token = getToken();
+                                    const respUser = await fetch(`${API_URL}/usuarios/${parsed.id}`, { headers: { 'Authorization': token ? `Bearer ${token}` : '', 'Content-Type': 'application/json' } });
+                                    if (respUser.ok) {
+                                        const jsonUser = await respUser.json();
+                                        const u = jsonUser.data || jsonUser;
+                                        if (u && (u.Residente || u.residente || u.residente_id || u.residenteId)) {
+                                            residenteId = u.residente?.id || u.residente_id || u.residenteId || (u.Residente && u.Residente.id) || residenteId;
+                                        }
+                                    }
+                                } catch (errUser) {
+                                    if (typeof window !== 'undefined' && window.DEBUG) console.error('Error resolviendo usuario->residente desde PageResidente:', errUser);
+                                }
+                            }
+                        }
                     }
-                } catch {
-                    // ignore parse errors
+                } catch (err) {
+                    // ignore parse errors but capture for debugging
+                    if (typeof window !== 'undefined' && window.DEBUG) console.error('Error parseando query params en PageResidente:', err);
                 }
             }
 
             if (!residenteId) {
-                console.error('No se encontró residente_id');
+                // Depuración: mostrar información de la query string y data param para entender por qué no hay id
+                try {
+                    const rawSearch = window.location.search;
+                    const urlParamsDbg = new URLSearchParams(rawSearch);
+                    const dataParamDbg = urlParamsDbg.get('data');
+                    if (typeof window !== 'undefined' && window.DEBUG) {
+                        console.warn('No se encontró residente_id en URL — window.location.search =', rawSearch);
+                        console.warn('data param (raw) =', dataParamDbg);
+                        if (dataParamDbg) {
+                            try { console.warn('data param (parsed) =', JSON.parse(decodeURIComponent(dataParamDbg))); } catch (e) { console.warn('data param parse error', e); }
+                        }
+                    }
+                    // Si no hay residente_id en URL, el sistema usará el del localStorage (comportamiento normal)
+                } catch (err) {
+                    console.error('Error al depurar query params:', err);
+                }
+
                 setLoading(false);
                 return;
             }
 
             const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-            const response = await fetch(`${API_URL}/servicios/residente/${residenteId}`, {
-                headers: {
-                    'Authorization': token ? `Bearer ${token}` : '',
-                    'Content-Type': 'application/json'
+
+            // Determinar si estamos mostrando el historial completo.
+            // SIEMPRE cargar historial completo (pagos antiguos + servicios pendientes)
+            const shouldLoadHistorial = true;
+
+            let response;
+            // definir contenedores en scope externo para evitar referencias a vars block-scoped
+            let servicios = [];
+            // Pre-declarar URLs para poder usar en debug modal
+            let historialUrl = null;
+            let serviciosUrl = null;
+            
+            console.log('📊 Cargando servicios para residente_id:', residenteId);
+            
+            if (shouldLoadHistorial) {
+                // En modo historial pedimos ambos: pagos (historial) y servicios (pendientes)
+                historialUrl = `${API_URL}/pagos/historial/${residenteId}`;
+                serviciosUrl = `${API_URL}/servicios/residente/${residenteId}`;
+                console.log('🔗 URLs:', { historialUrl, serviciosUrl });
+
+                // Ejecutar ambas peticiones en paralelo
+                const [resHist, resServ] = await Promise.all([
+                    fetch(historialUrl, { headers: { 'Authorization': token ? `Bearer ${token}` : '', 'Content-Type': 'application/json' } }),
+                    fetch(serviciosUrl, { headers: { 'Authorization': token ? `Bearer ${token}` : '', 'Content-Type': 'application/json' } })
+                ]);
+
+                console.log('📡 Respuestas:', { 
+                    historial: resHist.ok ? 'OK' : `ERROR ${resHist.status}`,
+                    servicios: resServ.ok ? 'OK' : `ERROR ${resServ.status}`
+                });
+
+                // Manejo de errores: si ambas fallan, lanzar; si una falla, usar la otra
+                if (!resHist.ok && !resServ.ok) {
+                    const t1 = await resHist.text().catch(()=>null);
+                    const t2 = await resServ.text().catch(()=>null);
+                    console.error('❌ Ambas peticiones fallaron:', { t1, t2 });
+                    throw new Error(t1 || t2 || 'Error al cargar historial y servicios');
                 }
-            });
 
-            if (!response.ok) {
-                const text = await response.text();
-                throw new Error(text || 'Error al cargar servicios');
-            }
+                const dataHist = resHist.ok ? await resHist.json() : [];
+                const dataServ = resServ.ok ? await resServ.json() : [];
 
-            const data = await response.json();
-            const servicios = Array.isArray(data) ? data : (data.data ?? []);
-            // LOG de depuración: mostrar los primeros servicios y sus campos 'estado' para verificar cómo vienen desde el backend
-            if (Array.isArray(servicios) && servicios.length > 0) {
-                console.log('DEBUG servicios sample:', servicios.slice(0, 10).map(s => ({ id: s.id, nombre: s.nombre, estado: s.estado, fecha_vencimiento: s.fecha_vencimiento ?? s.fechaVencimiento ?? s.fechaVencimiento })))
+                console.log('📦 Datos recibidos:', { 
+                    historial: Array.isArray(dataHist) ? dataHist.length : 'no array',
+                    servicios: Array.isArray(dataServ) ? dataServ.length : 'no array'
+                });
+
+                const arrHist = Array.isArray(dataHist) ? dataHist : (dataHist.data ?? []);
+                const arrServ = Array.isArray(dataServ) ? dataServ : (dataServ.data ?? []);
+
+                // Combinar y deduplicar por id (preferir datos del historial si hay conflicto)
+                const mapa = new Map();
+                (arrServ || []).forEach(s => { if (s && s.id !== undefined) mapa.set(String(s.id), s); });
+                (arrHist || []).forEach(s => { if (s && s.id !== undefined) mapa.set(String(s.id), s); });
+                servicios = Array.from(mapa.values());
+                
+                console.log('✅ Servicios combinados:', servicios.length);
+            } else {
+                serviciosUrl = `${API_URL}/servicios/residente/${residenteId}`;
+                if (typeof window !== 'undefined' && window.DEBUG) console.log('ℹ️ Cargando servicios por residente:', residenteId, 'URL:', serviciosUrl);
+                response = await fetch(serviciosUrl, {
+                    headers: {
+                        'Authorization': token ? `Bearer ${token}` : '',
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(text || 'Error al cargar servicios');
+                }
+
+                const data = await response.json();
+                servicios = Array.isArray(data) ? data : (data.data ?? []);
             }
             setServiciosDB(servicios);
         } catch (error) {
@@ -101,6 +225,21 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
     
     
     const formatearFecha = (fecha) => {
+        if (!fecha) return '';
+        // Parsear fecha evitando problemas de zona horaria
+        // Si la fecha viene como '2025-07-01', tratarla como fecha local, no UTC
+        const fechaStr = String(fecha).trim();
+        if (fechaStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            // Formato YYYY-MM-DD: parsear como fecha local
+            const [year, month, day] = fechaStr.split('-').map(Number);
+            const date = new Date(year, month - 1, day);
+            return date.toLocaleDateString('es-ES', {
+                day: '2-digit',
+                month: '2-digit', 
+                year: 'numeric'
+            });
+        }
+        // Para otros formatos, usar el parser estándar
         return new Date(fecha).toLocaleDateString('es-ES', {
             day: '2-digit',
             month: '2-digit', 
@@ -110,10 +249,22 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
     
     const calcularDiasVencimiento = (fechaVencimiento) => {
         if (!fechaVencimiento) return Infinity;
-        const vencimiento = new Date(fechaVencimiento);
+        
+        // Parsear fecha de vencimiento evitando problemas de zona horaria
+        let vencimiento;
+        const fechaStr = String(fechaVencimiento).trim();
+        if (fechaStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            // Formato YYYY-MM-DD: parsear como fecha local
+            const [year, month, day] = fechaStr.split('-').map(Number);
+            vencimiento = new Date(year, month - 1, day);
+        } else {
+            vencimiento = new Date(fechaVencimiento);
+        }
+        
         // Normalizar ambas fechas a medianoche local para evitar errores por zonas horarias/horas
         const vencDate = new Date(vencimiento.getFullYear(), vencimiento.getMonth(), vencimiento.getDate());
-        const hoyDate = new Date((new Date()).getFullYear(), (new Date()).getMonth(), (new Date()).getDate());
+        const hoy = new Date();
+        const hoyDate = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
         const msPorDia = 1000 * 60 * 60 * 24;
         const diferencia = Math.floor((vencDate - hoyDate) / msPorDia);
         return diferencia;
@@ -123,9 +274,9 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
         if (fechaPago) return "Pagado";
         
         const diasRestantes = calcularDiasVencimiento(fechaVencimiento);
-        if (diasRestantes < 0) return "Pendiente";
-        if (diasRestantes <= 5) return "Por vencer";
-        return "Al día";
+        if (diasRestantes < 0) return "En mora";
+        // Cualquier servicio no pagado que aún no venza es "Por vencer"
+        return "Por vencer";
     };
     
     // normalizeEstado viene del helper importado para consistencia
@@ -157,12 +308,17 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
                 }
             }
         }
-        const monto = Number(servicio.monto ?? servicio.amount ?? 0) || 0;
-        const numeroFactura = servicio.numeroFactura ?? servicio.numero_factura ?? servicio.numero_factura;
+    const monto = Number(servicio.monto ?? servicio.amount ?? 0) || 0;
+    const numeroFactura = servicio.numeroFactura ?? servicio.numero_factura ?? servicio.numero_factura;
+    // Normalizar metodo de pago y referencia para facilitar render
+    const metodoPago = servicio.metodo_pago ?? servicio.metodoPago ?? servicio.metodoPago ?? null;
+    const referenciaVal = servicio.referencia ?? servicio.referencia ?? servicio.referencia ?? null;
 
-        const diasVencimiento = calcularDiasVencimiento(fechaVencimiento);
-        // Estado derivado: Pagado solo si fechaPago válida, si no, usar cálculo por vencimiento
-        const estado = determinarEstado(fechaVencimiento, fechaPago);
+    const diasVencimiento = calcularDiasVencimiento(fechaVencimiento);
+    // Determinar si está pagado usando bandera explícita o fechaPago
+    const isPaid = Boolean(servicio.is_paid || fechaPago);
+    // Estado derivado: Pagado solo si isPaid true, si no, usar cálculo por vencimiento
+    const estado = isPaid ? 'Pagado' : determinarEstado(fechaVencimiento, null);
 
         return {
             ...servicio,
@@ -171,16 +327,21 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
             fechaPago,
             monto,
             numeroFactura,
+            metodo_pago: metodoPago,
+            metodoPago: metodoPago,
+            referencia: referenciaVal,
             estado,
             diasVencimiento,
+            isPaid, // ✅ AGREGAR ESTA PROPIEDAD al objeto procesado
+            is_paid: isPaid, // También agregamos is_paid por consistencia
             fechaGeneracionFormateada: fechaGeneracion ? formatearFecha(fechaGeneracion) : '',
             fechaVencimientoFormateada: fechaVencimiento ? formatearFecha(fechaVencimiento) : '',
             fechaPagoFormateada: fechaPago ? formatearFecha(fechaPago) : null
         };
     });
     
-    // serviciosActuales: los que no tienen fecha de pago válida (null)
-    const serviciosActuales = serviciosProcesados.filter(s => !s.fechaPago);
+    // serviciosActuales: los que no están pagados
+    const serviciosActuales = serviciosProcesados.filter(s => !(s.is_paid || s.fechaPago || s.fecha_pago));
     // históricos ya se derivan de serviciosProcesados cuando es necesario
     
     // Asegurarse de sumar números (evitar concatenación si monto es string)
@@ -192,18 +353,21 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
     // estadoGeneralResidente se calculará más abajo, después de normalizar 'residente'
     
     const handlePayment = (servicio) => {
-        if (esDesdeMora) {
+        // Solo abrir modal admin si el usuario logueado es admin
+        if (isAdminGlobal) {
             setSelectedService(servicio);
             setShowPaymentModal(true);
-        } else {
-            setSelectedService(servicio);
-            setShowResidentPaymentModal(true);
+            return;
         }
+
+        // Si no es admin, abrir modal de residente
+        setSelectedService(servicio);
+        setShowResidentPaymentModal(true);
     };
 
     const procesarPagoResidente = async (metodoPago, referencia, notas) => {
         try {
-            const token = localStorage.getItem('token');
+            const token = getToken();
             const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
             
             const response = await fetch(`${API_URL}/pagos/residente`, {
@@ -221,10 +385,21 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
                 })
             });
             
+            let bodyResp = null;
             if (!response.ok) {
-                throw new Error('Error al procesar el pago');
+                try { bodyResp = await response.json(); } catch { try { bodyResp = await response.text(); } catch { bodyResp = null; } }
+                const msg = bodyResp && bodyResp.error ? bodyResp.error : (typeof bodyResp === 'string' ? bodyResp : 'Error al procesar el pago');
+                throw new Error(msg);
             }
-            
+
+            try { bodyResp = await response.json(); } catch { bodyResp = null; }
+
+            // Si el servidor devolvió el servicio actualizado, actualizar el estado local inmediatamente
+            if (bodyResp && bodyResp.servicio) {
+                const returned = bodyResp.servicio;
+                setServiciosDB(prev => (Array.isArray(prev) ? prev.map(s => (String(s.id) === String(returned.id) ? { ...s, ...returned, fecha_pago: returned.fecha_pago ?? returned.fechaPago ?? s.fecha_pago, is_paid: true } : s)) : prev));
+            }
+
             // Recargar servicios desde la API para asegurar consistencia
             await cargarServicios();
             setShowResidentPaymentModal(false);
@@ -237,11 +412,11 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
         }
     };
     
-    const procesarPago = async (metodoPago, fechaPago, notas) => {
+    const procesarPago = async (metodoPago, fechaPago, notas, montoPago) => {
         if (!selectedService) return;
         
         try {
-            const token = localStorage.getItem('token');
+            const token = getToken();
             const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
             
             const response = await fetch(`${API_URL}/pagos/admin`, {
@@ -255,19 +430,32 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
                     metodoPago: metodoPago,
                     fechaPago: fechaPago,
                     notas: notas,
-                    monto: selectedService.monto
+                    monto: montoPago ? Number(montoPago) : selectedService.monto,
+                    residenteId: selectedService.residente_id ?? selectedService.residenteId ?? residente?.residente_id ?? residente?.id ?? null
                 })
             });
             
-            if (!response.ok) {
-                throw new Error('Error al registrar el pago');
+            let bodyResp = null;
+                if (!response.ok) {
+                try { bodyResp = await response.json(); } catch { try { bodyResp = await response.text(); } catch { bodyResp = null; } }
+                const msg = bodyResp && bodyResp.error ? bodyResp.error : (typeof bodyResp === 'string' ? bodyResp : 'Error al registrar el pago');
+                Swal.fire({ icon: 'error', title: 'Error', text: msg });
+                throw new Error(msg);
             }
-            
+
+            try { bodyResp = await response.json(); } catch { bodyResp = null; }
+
+            // Si el servidor devolvió el servicio actualizado, actualizar el estado local inmediatamente
+            if (bodyResp && bodyResp.servicio) {
+                const returned = bodyResp.servicio;
+                setServiciosDB(prev => (Array.isArray(prev) ? prev.map(s => (String(s.id) === String(returned.id) ? { ...s, ...returned, fecha_pago: returned.fecha_pago ?? returned.fechaPago ?? s.fecha_pago, is_paid: true } : s)) : prev));
+            }
+
             // Recargar servicios desde la API para asegurar consistencia
             await cargarServicios();
             setShowPaymentModal(false);
             setSelectedService(null);
-            Swal.fire({ icon: 'success', title: 'Pago registrado', text: `Servicio: ${selectedService.nombre} — Monto: $${selectedService.monto}`, timer: 2500 });
+            Swal.fire({ icon: 'success', title: 'Pago registrado', text: `Servicio: ${selectedService.nombre} — Monto: $${montoPago ? Number(montoPago) : selectedService.monto}`, timer: 2500 });
             
         } catch (error) {
             console.error('❌ Error al registrar pago:', error);
@@ -279,7 +467,7 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
     const actualizarServicio = async (payload) => {
         if (!selectedService) return;
         try {
-            const token = localStorage.getItem('token');
+            const token = getToken();
             const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
             const response = await fetch(`${API_URL}/servicios/${selectedService.id}`, {
@@ -310,6 +498,7 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
     
     const urlParams = new URLSearchParams(window.location.search);
     const fromMora = urlParams.get('fromMora') === 'true';
+    const fromAdmin = urlParams.get('fromAdmin') === 'true';
     const urlData = urlParams.get('data');
     
     const generarSaludo = (nombre, genero) => {
@@ -320,11 +509,18 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
 
     let residente = usuarioLogueado || {};
     let esDesdeMora = fromMora || isFromMora;
-    
+    let esDesdeAdmin = fromAdmin;
+
     if (urlData) {
         try {
             residente = JSON.parse(decodeURIComponent(urlData));
-            esDesdeMora = true;
+            // Si viene desde admin, no activar modo "desde mora"
+            if (fromAdmin) {
+                esDesdeAdmin = true;
+                esDesdeMora = false;
+            } else {
+                esDesdeMora = true;
+            }
         } catch (error) {
             console.error('Error parsing URL data:', error);
         }
@@ -333,7 +529,6 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
         esDesdeMora = isFromMora;
     }
     // Si la navegación nos pasó campos con nombres distintos (p.ej. desde PageMora), normalizarlos:
-    // PageMora usa 'diasVencimiento' y 'monto' mientras que en esta pantalla usamos 'diasMora' y 'totalDeuda'.
     try {
         if (residente) {
             // diasVencimiento -> diasMora
@@ -353,8 +548,8 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
                 residente.estado = 'En mora';
             }
         }
-    } catch (err) {
-        console.warn('Error normalizando datos del residente desde URL/props', err);
+    } catch {
+        // Silenciar error de normalización
     }
     
     // Actualizar datos calculados del residente
@@ -370,17 +565,22 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
         // Si el backend o la navegación nos pasó un estado ya calculado (ej. 'En mora'), respetarlo.
         if (residente && residente.estado) return residente.estado;
 
+        // Si no hay servicios actuales (no pagados), está al día
         if (serviciosActuales.length === 0) return "Pagado";
-        const tieneServiciosPendientes = serviciosActuales.some(s => s.estado === "Pendiente");
+        
+        // Verificar estados de los servicios no pagados (prioridad: En mora > Por vencer > Pendiente)
+        const tieneServiciosEnMora = serviciosActuales.some(s => s.estado === "En mora" || s.diasVencimiento < 0);
         const tieneServiciosPorVencer = serviciosActuales.some(s => s.estado === "Por vencer");
-        if (tieneServiciosPendientes) return "Pendiente";
+        const tieneServiciosPendientes = serviciosActuales.some(s => s.estado === "Pendiente");
+        
+        if (tieneServiciosEnMora) return "En mora";
         if (tieneServiciosPorVencer) return "Por vencer";
+        if (tieneServiciosPendientes) return "Pendiente";
         return "Al día";
     })();
     
     const cerrarSesion = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('Usuario');
+        clearSession();
         window.location.href = "/login";
     };
 
@@ -398,10 +598,18 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
     return (
         <div className="min-h-screen flex flex-col">
             <SectionHeader>
-                <Logo redirectTo={esDesdeMora ? "/mora" : "/residente"} />
+                <Logo redirectTo={esDesdeAdmin ? "/admin" : (esDesdeMora ? "/mora" : "/residente")} />
                 <BotonSecundary 
-                    textoBtn={esDesdeMora ? "Volver a Mora" : "Cerrar sesión"} 
-                    onClick={() => esDesdeMora ? window.location.href = "/mora" : cerrarSesion()} 
+                    textoBtn={esDesdeAdmin ? "Volver a Admin" : (esDesdeMora ? "Volver a Mora" : "Cerrar sesión")} 
+                    onClick={() => {
+                        if (esDesdeAdmin) {
+                            window.location.href = "/admin";
+                        } else if (esDesdeMora) {
+                            window.location.href = "/mora";
+                        } else {
+                            cerrarSesion();
+                        }
+                    }} 
                 />
             </SectionHeader>
 
@@ -501,65 +709,112 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
                                                         {esDesdeMora && <th className="px-4 py-2 text-left font-semibold">Fecha Emisión</th>}
                                                         <th className="px-4 py-2 text-left font-semibold">Monto</th>
                                                         <th className="px-4 py-2 text-left font-semibold">Fecha límite</th>
-                                                        <th className="px-4 py-2 text-left font-semibold">Días Mora</th>
+                                                        <th className="px-4 py-2 text-left font-semibold">Días</th>
                                                         <th className="px-4 py-2 text-left font-semibold">Estado</th>
+                                                        {/* Mostrar columnas de pago siempre (para historial y servicios actuales) */}
+                                                        <th className="px-4 py-2 text-left font-semibold">Fecha Pago</th>
+                                                        <th className="px-4 py-2 text-left font-semibold">Método</th>
+                                                        <th className="px-4 py-2 text-left font-semibold">Referencia</th>
                                                         <th className="px-4 py-2 text-center font-semibold">Acción</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {((esDesdeMora ? serviciosProcesados : serviciosActuales) || []).map((servicio) => (
-                                                        <tr key={servicio.id} className={`border-t ${getRowBackgroundColor(servicio.estado)}`}>
+                                                    {(serviciosProcesados || []).map((servicio) => {
+                                                        // Usar el isPaid ya calculado en el objeto procesado
+                                                        const isPaid = servicio.isPaid;
+                                                        const estadoParaFondo = isPaid ? 'Pagado' : (servicio.diasVencimiento < 0 ? 'En mora' : servicio.estado);
+                                                        
+                                                        return (
+                                                        <tr key={servicio.id} className={`border-t ${getRowBackgroundColor(estadoParaFondo)}`}>
                                                             <td className="px-4 py-2">{servicio.nombre}</td>
                                                             <td className="px-4 py-2">{servicio.numeroFactura}</td>
                                                             {esDesdeMora && <td className="px-4 py-2">{servicio.fechaGeneracionFormateada}</td>}
                                                             <td className="px-4 py-2">{formatCurrency(servicio.monto)}</td>
                                                             <td className="px-4 py-2">{servicio.fechaVencimientoFormateada}</td>
-                                                            <td className={`px-4 py-2 font-semibold ${servicio.diasVencimiento < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                                                {servicio.diasVencimiento < 0 ? `${Math.abs(servicio.diasVencimiento)} días` : `${servicio.diasVencimiento} días`}
-                                                            </td>
+                                                            {(() => {
+                                                                // Usar el isPaid ya calculado
+                                                                const isPaidCell = servicio.isPaid;
+                                                                const dias = servicio.diasVencimiento;
+                                                                // Si está pagado: gris; Si en mora (dias < 0): rojo; Si por vencer (dias >= 0): amarillo
+                                                                const cls = isPaidCell ? 'text-gray-600' : (dias < 0 ? 'text-red-600' : 'text-yellow-600');
+                                                                return (
+                                                                    <td className={`px-4 py-2 font-semibold ${cls}`}>
+                                                                        {isPaidCell ? '—' : (dias < 0 ? `${Math.abs(dias)} días` : `${dias} días`) }
+                                                                    </td>
+                                                                );
+                                                            })()}
                                                             <td className="px-4 py-2">
                                                                 {(() => {
-                                                                    const displayedEstado = (!servicio.is_paid && servicio.diasVencimiento < 0) ? 'En mora' : servicio.estado;
+                                                                    // Usar el isPaid ya calculado
+                                                                    const isPaid = servicio.isPaid;
+                                                                    if (isPaid) {
+                                                                        return <span className={`${getBadgeColors('Pagado')} text-xs px-2 py-1 rounded`}>Pagado</span>;
+                                                                    }
+                                                                    // Si no está pagado, determinar estado según días de vencimiento
+                                                                    const displayedEstado = servicio.diasVencimiento < 0 ? 'En mora' : servicio.estado;
                                                                     return <span className={`${getBadgeColors(displayedEstado)} text-xs px-2 py-1 rounded`}>{displayedEstado}</span>;
                                                                 })()}
                                                             </td>
+
+                                                            {/* Columnas de pago: mostrar siempre, con valores o guión si vacío */}
+                                                            <td className="px-4 py-2">{servicio.fechaPagoFormateada || servicio.fecha_pago || servicio.fechaPago || '—'}</td>
+                                                            <td className="px-4 py-2">{servicio.metodo_pago || servicio.metodoPago || '—'}</td>
+                                                            <td className="px-4 py-2">{servicio.referencia || '—'}</td>
+
                                                             <td className="px-4 py-2 text-center flex items-center justify-center gap-2">
                                                                                         {(() => {
-                                                                                            // Determinar si está pagado: preferir bandera backend, luego fechaPago normalizada
-                                                                                            const isPaid = Boolean(servicio.is_paid || servicio.fechaPago || servicio.fecha_pago);
+                                                                                            // Usar el isPaid ya calculado en el objeto procesado
+                                                                                            const isPaid = servicio.isPaid;
                                                                                             const isOverdue = servicio.diasVencimiento < 0;
-                                                                                            // Normalizar rol del usuario logueado
-                                                                                            const role = (usuarioLogueado?.rol || usuarioLogueado?.role || '').toString().toLowerCase();
-                                                                                            const isAdmin = role === 'admin' || role === 'administrador' || role === 'administrator';
+                                                                                            const isPorVencer = !isPaid && servicio.diasVencimiento >= 0;
 
-                                                                                            // Mostrar botones solo si está en mora (vencido) y no está pagado
-                                                                                            if (!isPaid && isOverdue) {
+                                                                                            // Si ya está pagado, mostrar "Pagado"
+                                                                                            if (isPaid) return <span className="text-sm text-green-600 font-medium">Pagado</span>;
+
+                                                                                            // ADMIN: Puede registrar pago para cualquier servicio no pagado (abre modal)
+                                                                                            if (!isPaid && isAdminGlobal) {
                                                                                                 return (
-                                                                                                    <>
-                                                                                                        <button className="px-3 py-1 bg-blue-600 text-white text-sm rounded shadow hover:bg-blue-700" onClick={() => handlePayment(servicio)}>
-                                                                                                            {esDesdeMora ? "Registrar pago" : "Pagar"}
-                                                                                                        </button>
-                                                                                                        {isAdmin && (
-                                                                                                            <button className="px-3 py-1 bg-gray-600 text-white text-sm rounded shadow hover:bg-gray-700" onClick={() => { setSelectedService(servicio); setShowEditModal(true); }}>
-                                                                                                                Editar
-                                                                                                            </button>
-                                                                                                        )}
-                                                                                                    </>
+                                                                                                    <button 
+                                                                                                        className="px-3 py-1 bg-blue-600 text-white text-sm rounded shadow hover:bg-blue-700" 
+                                                                                                        onClick={() => handlePayment(servicio)}
+                                                                                                    >
+                                                                                                        {esDesdeMora || esDesdeAdmin ? 'Registrar pago' : 'Pagar'}
+                                                                                                    </button>
                                                                                                 );
                                                                                             }
 
-                                                                                            // Si ya está pagado, mostrar etiqueta mínima
-                                                                                            if (isPaid) return <span className="text-sm text-green-600 font-medium">Pagado</span>;
-                                                                                            // Si no está en mora ni pagado, permitir pago normal
-                                                                                            return (
-                                                                                                <button className="px-3 py-1 bg-blue-600 text-white text-sm rounded shadow hover:bg-blue-700" onClick={() => handlePayment(servicio)}>
-                                                                                                    Pagar
-                                                                                                </button>
-                                                                                            );
+                                                                                            // RESIDENTE: Puede pagar servicios en mora o por vencer (botón sin acción por ahora)
+                                                                                            if (!isPaid && !isAdminGlobal && (isOverdue || isPorVencer)) {
+                                                                                                return (
+                                                                                                    <button 
+                                                                                                        className="px-3 py-1 bg-green-600 text-white text-sm rounded shadow hover:bg-green-700" 
+                                                                                                        onClick={() => {
+                                                                                                            // TODO: Integrar con pasarela de pagos
+                                                                                                            Swal.fire({
+                                                                                                                icon: 'info',
+                                                                                                                title: 'Próximamente',
+                                                                                                                text: 'La pasarela de pagos estará disponible pronto',
+                                                                                                                confirmButtonColor: '#16a34a'
+                                                                                                            });
+                                                                                                        }}
+                                                                                                    >
+                                                                                                        Pagar
+                                                                                                    </button>
+                                                                                                );
+                                                                                            }
+
+                                                                                            // Si es residente (no admin) y el servicio no está en mora, no mostrar botón
+                                                                                            if (!isAdminGlobal && !isOverdue) {
+                                                                                                return <span className="text-sm text-gray-600">—</span>;
+                                                                                            }
+
+                                                                                            // Fallback: no debería llegar aquí, pero por si acaso
+                                                                                            return <span className="text-sm text-gray-600">—</span>;
                                                                                         })()}
                                                             </td>
                                                         </tr>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </tbody>
                                             </table>
                                         </div>
@@ -588,11 +843,17 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
                                 <option value="transferencia">Transferencia</option>
                             </select>
                             <input id="fechaPago" type="date" className="w-full border rounded px-3 py-2" defaultValue={new Date().toISOString().split('T')[0]} />
+                            <input id="montoPagoAdmin" type="number" step="0.01" className="w-full border rounded px-3 py-2" defaultValue={selectedService?.monto ?? ''} />
                             <textarea id="notasPago" className="w-full border rounded px-3 py-2 h-20" placeholder="Notas..."/>
                         </div>
                         <div className="flex gap-3 mt-6">
                             <button className="flex-1 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700" 
-                                onClick={() => procesarPago(document.getElementById('metodoPago').value, document.getElementById('fechaPago').value, document.getElementById('notasPago').value)}>
+                                onClick={() => {
+                                    const metodo = document.getElementById('metodoPago').value;
+                                    const valid = ['efectivo','transferencia'];
+                                    if (!valid.includes(metodo)) { Swal.fire({ icon: 'error', title: 'Método no permitido', text: 'Solo transferencia o efectivo están permitidos desde admin.'}); return; }
+                                    procesarPago(metodo, document.getElementById('fechaPago').value, document.getElementById('notasPago').value, document.getElementById('montoPagoAdmin').value);
+                                }}>
                                 Registrar
                             </button>
                             <button className="flex-1 px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600" onClick={() => {setShowPaymentModal(false); setSelectedService(null);}}>

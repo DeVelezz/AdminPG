@@ -110,6 +110,12 @@ exports.getServiciosByResidente = async (req, res) => {
             // Campo auxiliar: fecha normalizada y bandera booleana para facilitar al frontend
             obj.fecha_pago_normalizada = obj.fecha_pago; // null o string válido
             obj.is_paid = !!obj.fecha_pago_normalizada;
+            
+            // Asegurar que metodo_pago y referencia estén presentes (null si vacíos)
+            obj.metodo_pago = obj.metodo_pago || null;
+            obj.referencia = obj.referencia || null;
+            obj.notas = obj.notas || null;
+            
             return obj;
         });
 
