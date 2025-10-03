@@ -10,7 +10,7 @@ exports.getUsuariosConResumen = async (req, res) => {
         const users = await Usuario.findAll({
             include: [{
                 model: Residente,
-                attributes: ['id', 'telefono', 'torre', 'apartamento']
+                attributes: ['id', 'telefono', 'torre', 'apartamento', 'genero'] // ✅ Agregar genero
             }],
             attributes: { exclude: ['contraseña'] }
         });
@@ -94,6 +94,7 @@ exports.getUsuariosConResumen = async (req, res) => {
                 torre: r.torre || null,
                 apartamento: r.apartamento || null,
                 telefono: r.telefono || null,
+                genero: r.genero || 'masculino', // ✅ Agregar genero
                 propiedad_id: r.id || null,
                 residente_id: r.id || null, // ✅ ID real de la tabla residentes
                 deudaTotal: deuda,

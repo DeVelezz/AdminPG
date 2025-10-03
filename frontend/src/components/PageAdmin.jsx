@@ -112,6 +112,7 @@ export default function PageAdmin() {
                     torre: u.torre || '',
                     apartamento: u.apartamento || '',
                     telefono: u.telefono || '',
+                    genero: u.genero || 'masculino', // ✅ Agregar genero
                     estado: u.estado || 'Al dia',
                     deudaTotal: typeof u.deudaTotal === 'number' ? u.deudaTotal : parseFloat(u.deudaTotal || 0),
                     ultimoVencimiento: u.ultimoVencimiento || null,
@@ -237,7 +238,7 @@ export default function PageAdmin() {
             if (userOrId && typeof userOrId === 'object') {
                 const u = userOrId;
                 setEditForm({
-                    id: u.id,
+                    id: u.usuario_id || u.id, // ✅ Usar usuario_id para editar en la tabla usuarios
                     nombre: u.nombre || '',
                     email: u.email || '',
                     telefono: u.telefono || '',
@@ -289,6 +290,7 @@ export default function PageAdmin() {
     const validateEditForm = () => {
         if (!editForm) return false;
         const emailRegex = /^\S+@\S+\.\S+$/;
+        if (!editForm.nombre || editForm.nombre.trim().length < 3) return false; // ✅ Validar nombre
         if (!editForm.email || !emailRegex.test(editForm.email)) return false;
         if (!editForm.telefono || String(editForm.telefono).trim().length < 6) return false;
         return true;
@@ -296,12 +298,23 @@ export default function PageAdmin() {
 
     const saveEditedUser = async () => {
         if (!editForm || !editForm.id) return;
+        
+        // ✅ Validar formulario antes de enviar
+        if (!validateEditForm()) {
+            Swal.fire({ 
+                icon: 'warning', 
+                title: 'Datos incompletos', 
+                text: 'Por favor completa todos los campos correctamente.' 
+            });
+            return;
+        }
+        
         try {
             const token = getToken();
             const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
             const payload = {
-                nombre: editForm.nombre,
-                email: editForm.email,
+                nombre: editForm.nombre.trim(),
+                email: editForm.email.trim(),
                 telefono: editForm.telefono,
                 torre: editForm.torre,
                 apartamento: editForm.apartamento,
