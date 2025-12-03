@@ -206,7 +206,7 @@ export default function PageEditarUsuario() {
                                     <div className="flex justify-center">
                                         <button
                                             type="submit"
-                                            className="w-36 px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 font-medium border border-transparent text-sm"
+                                            className="w-36 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 font-medium transition-colors shadow-sm text-sm"
                                         >
                                             Guardar Cambios
                                         </button>
@@ -214,7 +214,7 @@ export default function PageEditarUsuario() {
                                     <div className="flex justify-center">
                                         <button
                                             type="button"
-                                            className="w-36 px-4 py-2 bg-gray-500 text-white rounded shadow hover:bg-gray-600 font-medium border border-transparent text-sm"
+                                            className="w-36 px-4 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 font-medium transition-colors shadow-sm text-sm"
                                             onClick={() => window.location.href = "/admin"}
                                         >
                                             Cancelar

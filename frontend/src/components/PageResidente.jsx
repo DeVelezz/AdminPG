@@ -5,7 +5,8 @@ import ImgFondo from "./ImgFondo";
 import SectionFooter from "./SectionFooter";
 import React, { useState, useEffect, useCallback } from "react";
 import Swal from 'sweetalert2';
-import { getBadgeColors, getRowBackgroundColor, getUnderlineColor, formatCurrency } from '../utils/estadoUtils';
+import { FaEdit, FaCheckCircle, FaTimesCircle, FaClock } from "react-icons/fa";
+import { formatCurrency } from '../utils/estadoUtils';
 import { getToken, getUsuario, clearSession } from '../utils/sessionManager';
 
 // (Se eliminó helper de debug escapeHtml y botón 'Ver JSON' en producción)
@@ -18,6 +19,8 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
     const [serviciosDB, setServiciosDB] = useState([]);
     const [usuarioLogueado, setUsuarioLogueado] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 4; // 4 servicios por página para mejor visualización
     
     // Cargar usuario desde sessionStorage/localStorage
     useEffect(() => {
@@ -38,8 +41,6 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
         try {
             setLoading(true);
             const token = getToken();
-            
-            // DEBUG: Verificar si el token existe
             console.log('🔑 Token encontrado:', token ? 'SÍ (longitud: ' + token.length + ')' : 'NO');
             
             // Si no hay token, redirigir al login
@@ -144,24 +145,16 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
             let historialUrl = null;
             let serviciosUrl = null;
             
-            console.log('📊 Cargando servicios para residente_id:', residenteId);
-            
             if (shouldLoadHistorial) {
                 // En modo historial pedimos ambos: pagos (historial) y servicios (pendientes)
                 historialUrl = `${API_URL}/pagos/historial/${residenteId}`;
                 serviciosUrl = `${API_URL}/servicios/residente/${residenteId}`;
-                console.log('🔗 URLs:', { historialUrl, serviciosUrl });
 
                 // Ejecutar ambas peticiones en paralelo
                 const [resHist, resServ] = await Promise.all([
                     fetch(historialUrl, { headers: { 'Authorization': token ? `Bearer ${token}` : '', 'Content-Type': 'application/json' } }),
                     fetch(serviciosUrl, { headers: { 'Authorization': token ? `Bearer ${token}` : '', 'Content-Type': 'application/json' } })
                 ]);
-
-                console.log('📡 Respuestas:', { 
-                    historial: resHist.ok ? 'OK' : `ERROR ${resHist.status}`,
-                    servicios: resServ.ok ? 'OK' : `ERROR ${resServ.status}`
-                });
 
                 // Manejo de errores: si ambas fallan, lanzar; si una falla, usar la otra
                 if (!resHist.ok && !resServ.ok) {
@@ -221,6 +214,11 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
         cargarServicios();
     }, [cargarServicios, usuarioLogueado, residenteData]);
     
+    // Resetear página cuando cambien los servicios
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [serviciosDB.length]);
+    
     // Escuchar cambios en localStorage para detectar actualizaciones de usuario
     useEffect(() => {
         const handleStorageChange = async (e) => {
@@ -230,7 +228,6 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
                 
                 // Si el usuario actualizado es el usuario actual, recargar datos
                 if (currentUser && currentUser.id === updateData.userId) {
-                    console.log('🔄 Detectado cambio en el usuario actual, recargando datos...');
                     
                     try {
                         // Obtener datos actualizados del usuario desde el servidor
@@ -401,6 +398,8 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
     const isPaid = Boolean(servicio.is_paid || fechaPago);
     // Estado derivado: Pagado solo si isPaid true, si no, usar cálculo por vencimiento
     const estado = isPaid ? 'Pagado' : determinarEstado(fechaVencimiento, null);
+    if (typeof window !== 'undefined' && window.DEBUG) {
+    }
 
         return {
             ...servicio,
@@ -424,6 +423,11 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
     
     // serviciosActuales: los que no están pagados
     const serviciosActuales = serviciosProcesados.filter(s => !(s.is_paid || s.fechaPago || s.fecha_pago));
+    console.log('📊 Resumen de servicios:', {
+        total: serviciosProcesados.length,
+        noPagados: serviciosActuales.length,
+        estados: serviciosActuales.map(s => ({ id: s.id, estado: s.estado, dias: s.diasVencimiento }))
+    });
     
     // históricos ya se derivan de serviciosProcesados cuando es necesario
     
@@ -513,15 +517,8 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
                     console.error('Error decodificando token:', e);
                 }
             }
-            
-            console.log('👤 Usuario actual al registrar pago:');
-            console.log('  - Nombre:', usuario?.nombre);
-            console.log('  - Email:', usuario?.email);
             console.log('  - Rol (sessionStorage):', usuario?.rol || usuario?.role);
-            console.log('  - Usuario completo:', usuario);
-            console.log('  - Token decodificado:', tokenDecoded);
             console.log('  - Rol (en token JWT):', tokenDecoded?.rol || tokenDecoded?.role);
-            console.log('  - Tiene token:', !!token);
             
             const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
             
@@ -684,16 +681,21 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
         // Si no hay servicios actuales (no pagados), está al día
         if (serviciosActuales.length === 0) return "Al día";
         
-        // Verificar estados de los servicios no pagados (prioridad: En mora > Por vencer > Pendiente)
+        // Verificar estados de los servicios no pagados (prioridad: En mora > Por vencer)
         const tieneServiciosEnMora = serviciosActuales.some(s => s.estado === "En mora" || s.diasVencimiento < 0);
-        const tieneServiciosPorVencer = serviciosActuales.some(s => s.estado === "Por vencer");
-        const tieneServiciosPendientes = serviciosActuales.some(s => s.estado === "Pendiente");
+        const tieneServiciosPorVencer = serviciosActuales.some(s => s.estado === "Por vencer" || s.diasVencimiento >= 0);
+        
+        console.log('🎯 Estado general calculado:', {
+            serviciosActuales: serviciosActuales.length,
+            tieneEnMora: tieneServiciosEnMora,
+            tienePorVencer: tieneServiciosPorVencer,
+            estados: serviciosActuales.map(s => s.estado)
+        });
         
         if (tieneServiciosEnMora) return "En mora";
         if (tieneServiciosPorVencer) return "Por vencer";
-        if (tieneServiciosPendientes) return "Pendiente";
         
-        // Si llegamos aquí, está al día
+        // Si llegamos aquí, está al día (no debería pasar si hay serviciosActuales)
         return "Al día";
     })();
     
@@ -735,81 +737,110 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
                 <ImgFondo>
                     <img src="/img/imagen.png" alt="Imagen de fondo" className="w-full h-full object-cover brightness-75 absolute inset-0" />
 
-                    <div className="relative z-10 p-5">
-                        <div className="flex justify-center mb-4">
-                            <div className="bg-white px-6 py-4 rounded-lg shadow-lg" style={{width: 'fit-content', minWidth: '1000px'}}>
+                    <div className="relative z-10 p-2 sm:p-3 md:p-5">
+                        <div className="flex justify-center mb-3 sm:mb-4">
+                            <div className="bg-white px-2 xxs:px-3 sm:px-4 md:px-6 py-2 xxs:py-3 md:py-4 rounded-lg shadow-lg w-full max-w-full md:max-w-6xl 2xl:max-w-7xl mx-auto">
                                 {esDesdeMora ? (
-                                    <div className="flex items-center gap-8">
-                                        <div className="flex items-center gap-2">
-                                            <span className={`font-semibold text-xl text-gray-800 border-b-4 ${getUnderlineColor(estadoGeneralResidente)} pb-1`}>
+                                    <div className="flex flex-col gap-2 xxs:gap-3">
+                                        {/* Nombre y ubicación */}
+                                        <div className="flex flex-col gap-1">
+                                            <span className={`font-semibold text-sm xxs:text-base sm:text-lg text-gray-800 border-b-2 xxs:border-b-4 pb-1 w-fit ${
+                                                estadoGeneralResidente.toLowerCase().includes('mora') ? 'border-red-500' :
+                                                estadoGeneralResidente.toLowerCase().includes('vencer') ? 'border-amber-500' :
+                                                'border-green-500'
+                                            }`}>
                                                 {residente.nombre}
                                             </span>
-                                            <span className="text-gray-600">Torre {residente.torre} - Apto {residente.apartamento}</span>
+                                            <span className="text-[10px] xxs:text-xs sm:text-sm text-gray-600">Torre {residente.torre} - Apto {residente.apartamento}</span>
                                         </div>
-                                        <div>
-                                            <span className="text-sm text-gray-600">Teléfono: </span>
-                                            <span className="font-medium ml-1">{residente.telefono}</span>
+                                        
+                                        {/* Contacto */}
+                                        <div className="flex flex-col gap-1">
+                                            <div className="text-[10px] xxs:text-xs sm:text-sm">
+                                                <span className="text-gray-600">Tel: </span>
+                                                <span className="font-medium">{residente.telefono}</span>
+                                            </div>
+                                            <div className="text-[10px] xxs:text-xs sm:text-sm">
+                                                <span className="text-gray-600">Email: </span>
+                                                <span className="font-medium break-all">{residente.email}</span>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <span className="text-sm text-gray-600">Email: </span>
-                                            <span className="font-medium ml-1">{residente.email}</span>
-                                        </div>
-                                        <div className="flex gap-3 items-center">
-                                            {/* Badge de estado (usa colores centralizados) */}
-                                            <span className={`${getBadgeColors(estadoGeneralResidente)} text-xs px-2 py-1 rounded`}>{estadoGeneralResidente}</span>
-                                            {/* Mostrar mora siempre si existe (priorizar valores pasados por navegación) */}
+                                        
+                                        {/* Badges de estado */}
+                                        <div className="flex gap-1.5 xxs:gap-2 items-center flex-wrap">
+                                            <span className={`text-[8px] xxs:text-xs px-1.5 xxs:px-3 py-0.5 xxs:py-1 rounded-full font-medium inline-flex items-center ${
+                                                estadoGeneralResidente.toLowerCase().includes('mora') || estadoGeneralResidente.toLowerCase().includes('pendiente') 
+                                                    ? 'bg-red-50 text-red-700 border border-red-200' 
+                                                    : estadoGeneralResidente.toLowerCase().includes('vencer') 
+                                                    ? 'bg-amber-50 text-amber-700 border border-amber-200' 
+                                                    : 'bg-green-50 text-green-700 border border-green-200'
+                                            }`}>{estadoGeneralResidente}</span>
                                             {((residente && Number(residente.diasMora) > 0) || diasMora > 0) && (
-                                                <span className={`${Number((residente && residente.diasMora) || diasMora) > 0 ? 'bg-red-100 text-red-700' : getBadgeColors('Pendiente')} text-xs px-2 py-1 rounded`}>Mora: { (residente && Number(residente.diasMora) > 0) ? Number(residente.diasMora) : diasMora } días</span>
+                                                <span className="text-[8px] xxs:text-xs px-1.5 xxs:px-3 py-0.5 xxs:py-1 rounded-full font-medium inline-flex items-center bg-red-50 text-red-700 border border-red-200">
+                                                    Mora: { (residente && Number(residente.diasMora) > 0) ? Number(residente.diasMora) : diasMora }d
+                                                </span>
                                             )}
-                                            {/* Deuda siempre visible, preferir residente.totalDeuda si viene en la navegación */}
-                                            <span className="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded">Deuda: {formatCurrency((residente && typeof residente.totalDeuda === 'number') ? residente.totalDeuda : deudaTotal)}</span>
+                                            <span className="text-[8px] xxs:text-xs px-1.5 xxs:px-3 py-0.5 xxs:py-1 rounded-full font-medium inline-flex items-center bg-gray-50 text-gray-700 border border-gray-200">
+                                                Deuda: {formatCurrency((residente && typeof residente.totalDeuda === 'number') ? residente.totalDeuda : deudaTotal)}
+                                            </span>
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="space-y-4">
-                                        <div className="flex justify-center">
-                                            <span className={`font-semibold text-xl text-gray-800 border-b-4 ${getUnderlineColor(estadoGeneralResidente)} pb-1`}>
+                                    <div className="flex flex-col gap-2 xxs:gap-3 sm:gap-4">
+                                        <div className="text-center">
+                                            <span className={`font-semibold text-sm xxs:text-base sm:text-xl text-gray-800 border-b-2 xxs:border-b-4 pb-1 inline-block ${
+                                                estadoGeneralResidente.toLowerCase().includes('mora') ? 'border-red-500' :
+                                                estadoGeneralResidente.toLowerCase().includes('vencer') ? 'border-amber-500' :
+                                                'border-green-500'
+                                            }`}>
                                                 {generarSaludo(residente.nombre, residente.genero)}
                                             </span>
                                         </div>
-                                        <div className="flex items-center justify-center gap-8">
-                                            <div>
+                                        
+                                        {/* Info básica en columna para móvil, fila para desktop */}
+                                        <div className="flex flex-col sm:flex-row sm:justify-center gap-1 xxs:gap-2 sm:gap-8 text-center sm:text-left">
+                                            <div className="text-[10px] xxs:text-xs sm:text-sm">
                                                 <span className="text-gray-800 font-medium">Torre {residente.torre} - Apto {residente.apartamento}</span>
                                             </div>
-                                            <div>
-                                                <span className="text-sm text-gray-600">Teléfono: </span>
-                                                <span className="font-medium ml-1">{residente.telefono}</span>
+                                            <div className="text-[10px] xxs:text-xs sm:text-sm">
+                                                <span className="text-gray-600">Tel: </span>
+                                                <span className="font-medium">{residente.telefono}</span>
                                             </div>
-                                            <div>
-                                                <span className="text-sm text-gray-600">Email: </span>
-                                                <span className="font-medium ml-1">{residente.email}</span>
+                                            <div className="text-[10px] xxs:text-xs sm:text-sm">
+                                                <span className="text-gray-600">Email: </span>
+                                                <span className="font-medium break-all">{residente.email}</span>
                                             </div>
-                                            {((residente && Number(residente.diasMora) > 0) || (residente && typeof residente.totalDeuda === 'number' && residente.totalDeuda > 0) || diasMora > 0 || deudaTotal > 0) && (
-                                                <div className="flex gap-3">
-                                                    {/* Priorizar valores pasados por navegación; si hay mora, destacar en rojo */}
-                                                    {((residente && Number(residente.diasMora) > 0) || diasMora > 0) && (
-                                                        <span className={`${Number((residente && residente.diasMora) || diasMora) > 0 ? 'bg-red-100 text-red-700' : getBadgeColors('Pendiente')} text-xs px-2 py-1 rounded`}>Mora: { (residente && Number(residente.diasMora) > 0) ? Number(residente.diasMora) : diasMora } días</span>
-                                                    )}
-                                                    {(((residente && typeof residente.totalDeuda === 'number') ? residente.totalDeuda : deudaTotal) > 0) && (
-                                                        <span className="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded">Deuda: {formatCurrency((residente && typeof residente.totalDeuda === 'number') ? residente.totalDeuda : deudaTotal)}</span>
-                                                    )}
-                                                </div>
-                                            )}
                                         </div>
+                                        
+                                        {/* Badges si hay deuda/mora */}
+                                        {((residente && Number(residente.diasMora) > 0) || (residente && typeof residente.totalDeuda === 'number' && residente.totalDeuda > 0) || diasMora > 0 || deudaTotal > 0) && (
+                                            <div className="flex gap-1.5 xxs:gap-2 sm:gap-3 justify-center flex-wrap">
+                                                {((residente && Number(residente.diasMora) > 0) || diasMora > 0) && (
+                                                    <span className="text-[8px] xxs:text-xs px-1.5 xxs:px-3 py-0.5 xxs:py-1 rounded-full font-medium inline-flex items-center bg-red-50 text-red-700 border border-red-200">
+                                                        Mora: { (residente && Number(residente.diasMora) > 0) ? Number(residente.diasMora) : diasMora }d
+                                                    </span>
+                                                )}
+                                                {(((residente && typeof residente.totalDeuda === 'number') ? residente.totalDeuda : deudaTotal) > 0) && (
+                                                    <span className="text-[8px] xxs:text-xs px-1.5 xxs:px-3 py-0.5 xxs:py-1 rounded-full font-medium inline-flex items-center bg-gray-50 text-gray-700 border border-gray-200">
+                                                        Deuda: {formatCurrency((residente && typeof residente.totalDeuda === 'number') ? residente.totalDeuda : deudaTotal)}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
                         </div>
 
-                        <div className="shadow-lg mt-8">
-                            <div className="bg-white shadow-lg rounded" style={{minWidth: '1000px'}}>
-                                <div className="flex justify-between items-center px-4 py-3 border-b">
-                                    <span className="font-bold text-black text-xl">
+                        <div className="shadow-lg mt-4 sm:mt-6 md:mt-8 w-full max-w-full">
+                            <div className="bg-white shadow-lg rounded w-full overflow-hidden">
+                                <div className="flex justify-between items-center px-2 sm:px-3 md:px-4 py-2 sm:py-3 border-b">
+                                    <span className="font-bold text-black text-base sm:text-lg md:text-xl">
                                         {esDesdeMora ? "Historial Completo de Pagos" : "Información de los cobros"}
                                     </span>
                                 </div>
-                                <div className="bg-gray-100 p-6 rounded-b">
-                                    <h3 className="text-center text-blue-600 font-bold text-xl mb-4">
+                                <div className="bg-gray-100 p-2 sm:p-3 md:p-6 rounded-b">
+                                    <h3 className="text-center text-blue-600 font-bold text-base sm:text-lg md:text-xl mb-2 sm:mb-3 md:mb-4">
                                         {esDesdeMora ? "Deudas y Historial de Pagos" : "Tabla con los pagos pendientes"}
                                     </h3>
                                     
@@ -818,82 +849,95 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
                                             No hay servicios registrados
                                         </div>
                                     ) : (
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full bg-white border rounded shadow">
-                                                <thead className="bg-gray-200 text-black">
+                                        <>
+                                        <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+                                            <table className="w-full bg-white">
+                                                <thead className="bg-gray-50 border-b border-gray-200">
                                                     <tr>
-                                                        <th className="px-4 py-2 text-left font-semibold">Concepto</th>
-                                                        <th className="px-4 py-2 text-left font-semibold">ID Cobro</th>
-                                                        {esDesdeMora && <th className="px-4 py-2 text-left font-semibold">Fecha Emisión</th>}
-                                                        <th className="px-4 py-2 text-left font-semibold">Monto</th>
-                                                        <th className="px-4 py-2 text-left font-semibold">Fecha límite</th>
-                                                        <th className="px-4 py-2 text-left font-semibold">Días</th>
-                                                        <th className="px-4 py-2 text-left font-semibold">Estado</th>
+                                                        <th className="px-0.5 xxs:px-2 sm:px-4 py-1 xxs:py-3 text-left text-[9px] xxs:text-xs sm:text-sm font-semibold text-gray-700">Concepto</th>
+                                                        <th className="px-0.5 xxs:px-2 sm:px-4 py-1 xxs:py-3 text-left text-[9px] xxs:text-xs sm:text-sm font-semibold text-gray-700 hidden lg:table-cell">ID Cobro</th>
+                                                        {esDesdeMora && <th className="px-0.5 xxs:px-2 sm:px-4 py-1 xxs:py-3 text-left text-[9px] xxs:text-xs sm:text-sm font-semibold text-gray-700 hidden xl:table-cell">Fecha Emisión</th>}
+                                                        <th className="px-0.5 xxs:px-2 sm:px-4 py-1 xxs:py-3 text-left text-[9px] xxs:text-xs sm:text-sm font-semibold text-gray-700">Monto</th>
+                                                        <th className="px-0.5 xxs:px-2 sm:px-4 py-1 xxs:py-3 text-left text-[9px] xxs:text-xs sm:text-sm font-semibold text-gray-700 hidden md:table-cell">Fecha límite</th>
+                                                        <th className="px-0.5 xxs:px-2 sm:px-4 py-1 xxs:py-3 text-left text-[9px] xxs:text-xs sm:text-sm font-semibold text-gray-700 hidden sm:table-cell">Días</th>
+                                                        <th className="px-0.5 xxs:px-2 sm:px-4 py-1 xxs:py-3 text-left text-[9px] xxs:text-xs sm:text-sm font-semibold text-gray-700">Estado</th>
                                                         {/* Mostrar columnas de pago siempre (para historial y servicios actuales) */}
-                                                        <th className="px-4 py-2 text-left font-semibold">Fecha Pago</th>
-                                                        <th className="px-4 py-2 text-left font-semibold">Método</th>
-                                                        <th className="px-4 py-2 text-left font-semibold">Referencia</th>
-                                                        <th className="px-4 py-2 text-center font-semibold">Acción</th>
+                                                        <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 hidden lg:table-cell">Fecha Pago</th>
+                                                        <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 hidden xl:table-cell">Método</th>
+                                                        <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 hidden xl:table-cell">Referencia</th>
+                                                        <th className="px-2 sm:px-4 py-3 text-center text-xs sm:text-sm font-semibold text-gray-700">Acción</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {(serviciosProcesados || []).map((servicio) => {
+                                                    {(() => {
+                                                        // Calcular paginación
+                                                        const indexOfLastItem = currentPage * itemsPerPage;
+                                                        const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+                                                        const currentItems = serviciosProcesados.slice(indexOfFirstItem, indexOfLastItem);
+                                                        
+                                                        return currentItems.map((servicio) => {
                                                         // Usar el isPaid ya calculado en el objeto procesado
                                                         const isPaid = servicio.isPaid;
                                                         const estadoParaFondo = isPaid ? 'Pagado' : (servicio.diasVencimiento < 0 ? 'En mora' : servicio.estado);
                                                         
                                                         return (
-                                                        <tr key={servicio.id} className={`border-t ${getRowBackgroundColor(estadoParaFondo)}`}>
-                                                            <td className="px-4 py-2">{servicio.nombre}</td>
-                                                            <td className="px-4 py-2">{servicio.numeroFactura}</td>
-                                                            {esDesdeMora && <td className="px-4 py-2">{servicio.fechaGeneracionFormateada}</td>}
-                                                            <td className="px-4 py-2">{formatCurrency(servicio.monto)}</td>
-                                                            <td className="px-4 py-2">{servicio.fechaVencimientoFormateada}</td>
+                                                        <tr key={servicio.id} className={`hover:bg-gray-50 transition-colors border-l-2 xxs:border-l-4 ${
+                                                            isPaid ? 'border-green-500' : (servicio.diasVencimiento < 0 ? 'border-red-500' : 'border-amber-500')
+                                                        }`}>
+                                                            <td className="px-0.5 xxs:px-2 sm:px-4 py-1 xxs:py-2 sm:py-3 border-b border-gray-100 font-medium text-gray-900 text-[9px] xxs:text-xs sm:text-sm">{servicio.nombre}</td>
+                                                            <td className="px-0.5 xxs:px-2 sm:px-4 py-1 xxs:py-2 sm:py-3 border-b border-gray-100 text-gray-600 text-[9px] xxs:text-xs sm:text-sm hidden lg:table-cell">{servicio.numeroFactura}</td>
+                                                            {esDesdeMora && <td className="px-0.5 xxs:px-2 sm:px-4 py-1 xxs:py-2 sm:py-3 border-b border-gray-100 text-gray-600 text-[9px] xxs:text-xs sm:text-sm hidden xl:table-cell">{servicio.fechaGeneracionFormateada}</td>}
+                                                            <td className="px-0.5 xxs:px-2 sm:px-4 py-1 xxs:py-2 sm:py-3 border-b border-gray-100 font-semibold text-gray-900 text-[9px] xxs:text-xs sm:text-sm">{formatCurrency(servicio.monto)}</td>
+                                                            <td className="px-0.5 xxs:px-2 sm:px-4 py-1 xxs:py-2 sm:py-3 border-b border-gray-100 text-gray-600 text-[9px] xxs:text-xs hidden md:table-cell">{servicio.fechaVencimientoFormateada}</td>
                                                             {(() => {
                                                                 // Usar el isPaid ya calculado
                                                                 const isPaidCell = servicio.isPaid;
                                                                 const dias = servicio.diasVencimiento;
                                                                 // Si está pagado: gris; Si en mora (dias < 0): rojo; Si por vencer (dias >= 0): amarillo
-                                                                const cls = isPaidCell ? 'text-gray-600' : (dias < 0 ? 'text-red-600' : 'text-yellow-600');
+                                                                const cls = isPaidCell ? 'text-gray-500' : (dias < 0 ? 'text-red-600' : 'text-amber-600');
                                                                 return (
-                                                                    <td className={`px-4 py-2 font-semibold ${cls}`}>
+                                                                    <td className={`px-2 sm:px-4 py-2 sm:py-3 border-b border-gray-100 font-semibold text-xs sm:text-sm hidden sm:table-cell ${cls}`}>
                                                                         {isPaidCell ? '—' : (dias < 0 ? `${Math.abs(dias)} días` : `${dias} días`) }
                                                                     </td>
                                                                 );
                                                             })()}
-                                                            <td className="px-4 py-2">
+                                                            <td className="px-2 sm:px-4 py-2 sm:py-3 border-b border-gray-100">
                                                                 {(() => {
                                                                     // Usar el isPaid ya calculado
                                                                     const isPaid = servicio.isPaid;
                                                                     if (isPaid) {
-                                                                        return <span className={`${getBadgeColors('Pagado')} text-xs px-2 py-1 rounded`}>Pagado</span>;
+                                                                        return <span className="text-[8px] xxs:text-xs sm:text-sm 2xl:text-base px-1 xxs:px-2 sm:px-3 py-0.5 sm:py-1 rounded-full font-medium inline-flex items-center bg-green-50 text-green-700 border border-green-200">Pagado</span>;
                                                                     }
                                                                     // Si no está pagado, determinar estado según días de vencimiento
                                                                     const displayedEstado = servicio.diasVencimiento < 0 ? 'En mora' : servicio.estado;
-                                                                    return <span className={`${getBadgeColors(displayedEstado)} text-xs px-2 py-1 rounded`}>{displayedEstado}</span>;
+                                                                    const badgeClass = displayedEstado.toLowerCase().includes('mora') 
+                                                                        ? 'bg-red-50 text-red-700 border border-red-200' 
+                                                                        : 'bg-amber-50 text-amber-700 border border-amber-200';
+                                                                    return <span className={`text-[8px] xxs:text-xs sm:text-sm 2xl:text-base px-1 xxs:px-2 sm:px-3 py-0.5 sm:py-1 rounded-full font-medium inline-flex items-center ${badgeClass}`}>{displayedEstado}</span>;
                                                                 })()}
                                                             </td>
 
                                                             {/* Columnas de pago: mostrar siempre, con valores o guión si vacío */}
-                                                            <td className="px-4 py-2">{servicio.fechaPagoFormateada || servicio.fecha_pago || servicio.fechaPago || '—'}</td>
-                                                            <td className="px-4 py-2">{servicio.metodo_pago || servicio.metodoPago || '—'}</td>
-                                                            <td className="px-4 py-2">{servicio.referencia || '—'}</td>
+                                                            <td className="px-2 sm:px-4 py-2 sm:py-3 border-b border-gray-100 text-gray-600 text-xs sm:text-sm hidden lg:table-cell">{servicio.fechaPagoFormateada || servicio.fecha_pago || servicio.fechaPago || '—'}</td>
+                                                            <td className="px-2 sm:px-4 py-2 sm:py-3 border-b border-gray-100 text-gray-600 text-xs sm:text-sm hidden xl:table-cell">{servicio.metodo_pago || servicio.metodoPago || '—'}</td>
+                                                            <td className="px-2 sm:px-4 py-2 sm:py-3 border-b border-gray-100 text-gray-600 text-xs sm:text-sm hidden xl:table-cell">{servicio.referencia || '—'}</td>
 
-                                                            <td className="px-4 py-2 text-center flex items-center justify-center gap-2">
+                                                            <td className="px-1 xxs:px-2 sm:px-4 py-1.5 xxs:py-2 sm:py-3 border-b border-gray-100 text-center">
+                                                                <div className="flex items-center justify-center gap-0.5 xxs:gap-1 sm:gap-2">
                                                                                         {(() => {
                                                                                             // Usar el isPaid ya calculado en el objeto procesado
                                                                                             const isPaid = servicio.isPaid;
                                                                                             const isOverdue = servicio.diasVencimiento < 0;
                                                                                             const isPorVencer = !isPaid && servicio.diasVencimiento >= 0;
 
-                                                                                            // Si ya está pagado, mostrar "Pagado"
-                                                                                            if (isPaid) return <span className="text-sm text-green-600 font-medium">Pagado</span>;
+                                                                                            // Si ya está pagado, mostrar icono
+                                                                                            if (isPaid) return <span className="text-sm text-green-600 font-medium flex items-center gap-1"><FaCheckCircle className="w-4 h-4" /> Pagado</span>;
 
                                                                                             // ADMIN: Puede registrar pago para cualquier servicio no pagado (abre modal)
                                                                                             if (!isPaid && isAdminGlobal) {
                                                                                                 return (
                                                                                                     <button 
-                                                                                                        className="px-3 py-1 bg-blue-600 text-white text-sm rounded shadow hover:bg-blue-700" 
+                                                                                                        className="px-4 py-2 bg-slate-700 text-white text-sm rounded-lg hover:bg-slate-800 transition-colors shadow-sm" 
                                                                                                         onClick={() => handlePayment(servicio)}
                                                                                                     >
                                                                                                         {esDesdeMora || esDesdeAdmin ? 'Registrar pago' : 'Pagar'}
@@ -929,13 +973,71 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
                                                                                             // Fallback: no debería llegar aquí, pero por si acaso
                                                                                             return <span className="text-sm text-gray-600">—</span>;
                                                                                         })()}
+                                                                </div>
                                                             </td>
                                                         </tr>
                                                         );
-                                                    })}
+                                                        });
+                                                    })()}
                                                 </tbody>
                                             </table>
                                         </div>
+                                        
+                                        {/* Controles de Paginación */}
+                                        {serviciosProcesados.length > itemsPerPage && (
+                                            <div className="flex flex-col sm:flex-row justify-between items-center mt-2 xxs:mt-3 sm:mt-4 px-1 xxs:px-2 sm:px-4 gap-2 xxs:gap-3">
+                                                <div className="text-xxs xxs:text-xs sm:text-sm text-gray-600 text-center">
+                                                    Mostrando {((currentPage - 1) * itemsPerPage) + 1} a {Math.min(currentPage * itemsPerPage, serviciosProcesados.length)} de {serviciosProcesados.length} servicios
+                                                </div>
+                                                <div className="flex flex-wrap gap-1 sm:gap-2 justify-center">
+                                                    <button
+                                                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                                        disabled={currentPage === 1}
+                                                        className={`px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
+                                                            currentPage === 1
+                                                                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                                                : 'bg-slate-700 text-white hover:bg-slate-800'
+                                                        }`}
+                                                    >
+                                                        Anterior
+                                                    </button>
+                                                    <div className="flex items-center gap-2">
+                                                        {(() => {
+                                                            const totalPages = Math.ceil(serviciosProcesados.length / itemsPerPage);
+                                                            const pages = [];
+                                                            for (let i = 1; i <= totalPages; i++) {
+                                                                pages.push(
+                                                                    <button
+                                                                        key={i}
+                                                                        onClick={() => setCurrentPage(i)}
+                                                                        className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
+                                                                            currentPage === i
+                                                                                ? 'bg-slate-700 text-white'
+                                                                                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                                                                        }`}
+                                                                    >
+                                                                        {i}
+                                                                    </button>
+                                                                );
+                                                            }
+                                                            return pages;
+                                                        })()}
+                                                    </div>
+                                                    <button
+                                                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(serviciosProcesados.length / itemsPerPage)))}
+                                                        disabled={currentPage === Math.ceil(serviciosProcesados.length / itemsPerPage)}
+                                                        className={`px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
+                                                            currentPage === Math.ceil(serviciosProcesados.length / itemsPerPage)
+                                                                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                                                : 'bg-slate-700 text-white hover:bg-slate-800'
+                                                        }`}
+                                                    >
+                                                        Siguiente
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                        </>
                                     )}
                                 </div>
                             </div>

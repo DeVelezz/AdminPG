@@ -142,7 +142,7 @@ export default function PageLogin({ onLogin }) {
                 <div className="ml-2">
                     <Logo redirectTo="/" />
                 </div>
-                <div className="flex space-x-2">
+                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                     <BotonSecundary textoBtn="Inicio" onClick={() => navigate("/")} />
                     <BotonSecundary textoBtn="Registrate" onClick={() => navigate("/registro")} />
                 </div>
@@ -154,38 +154,38 @@ export default function PageLogin({ onLogin }) {
                     <img src="/img/imagen.png" alt="Imagen de fondo" className="w-full h-full object-cover brightness-75 absolute inset-0" />
                     
                     {/* FORMULARIO DE LOGIN CENTRADO Y MEDIANO */}
-                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                        <div className="bg-white p-8 rounded-lg shadow-lg w-96">
-                            <h2 className="text-2xl font-semibold text-center text-gray-700 mb-8">Iniciar Sesión</h2>
+                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full px-1 xxs:px-3 sm:px-0">
+                        <div className="bg-white p-2 xxs:p-4 sm:p-6 md:p-8 rounded-lg shadow-lg w-full max-w-[260px] xxs:max-w-sm sm:max-w-md mx-auto">
+                            <h2 className="text-sm xxs:text-lg sm:text-xl md:text-2xl font-semibold text-center text-gray-700 mb-2 xxs:mb-4 sm:mb-6 md:mb-8">Iniciar Sesión</h2>
                             
                             <form onSubmit={handleSubmit}>
-                                <div className="mb-6">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                                <div className="mb-2 xxs:mb-4 sm:mb-6">
+                                    <label className="block text-[9px] xxs:text-xs sm:text-sm font-medium text-gray-700 mb-0.5 xxs:mb-1 sm:mb-2">Email</label>
                                     <input
                                         type="email"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        placeholder="Tu correo electrónico"
+                                        className="w-full px-1.5 xxs:px-3 sm:px-4 py-1 xxs:py-2 sm:py-3 text-[10px] xxs:text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="correo@ejemplo.com"
                                         required
                                     />
                                 </div>
 
-                                <div className="mb-8">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Contraseña</label>
+                                <div className="mb-2 xxs:mb-6 sm:mb-8">
+                                    <label className="block text-[9px] xxs:text-xs sm:text-sm font-medium text-gray-700 mb-0.5 xxs:mb-1 sm:mb-2">Contraseña</label>
                                     <input
                                         type="password"
                                         value={contrasena}
                                         onChange={(e) => setContrasena(e.target.value)}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        placeholder="Tu contraseña"
+                                        className="w-full px-1.5 xxs:px-3 sm:px-4 py-1 xxs:py-2 sm:py-3 text-[10px] xxs:text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="••••••••"
                                         required
                                     />
                                 </div>
 
                                 <button
                                     type="submit"
-                                    className="w-full px-4 py-3 bg-blue-600 text-white rounded shadow hover:bg-blue-700 font-medium"
+                                    className="w-full px-2 xxs:px-3 sm:px-4 py-1 xxs:py-2 sm:py-3 text-[10px] xxs:text-sm sm:text-base bg-slate-700 text-white rounded-lg hover:bg-slate-800 font-medium transition-colors shadow-sm"
                                 >
                                     Iniciar Sesión
                                 </button>

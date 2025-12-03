@@ -15,19 +15,6 @@ exports.createServicio = async (req, res) => {
             aplicarATodos 
         } = req.body;
 
-        console.log('📥 Crear servicio - Datos recibidos:', {
-            nombre,
-            monto,
-            fecha_generacion,
-            fecha_vencimiento,
-            numero_factura,
-            residente_id,
-            residente_ids,
-            aplicarATodos,
-            residente_ids_type: Array.isArray(residente_ids),
-            residente_ids_length: residente_ids?.length
-        });
-
         // Validar campos requeridos
         if (!nombre || !monto || !fecha_generacion || !fecha_vencimiento) {
             return res.status(400).json({ 
@@ -65,7 +52,6 @@ exports.createServicio = async (req, res) => {
 
         // Si se aplica a múltiples residentes específicos (nuevo)
         if (residente_ids && Array.isArray(residente_ids) && residente_ids.length > 0) {
-            console.log('✅ Creando servicios para múltiples residentes:', residente_ids);
             
             // Verificar que todos los residentes existen
             const residentesExistentes = await Residente.findAll({
@@ -73,8 +59,6 @@ exports.createServicio = async (req, res) => {
                     id: residente_ids
                 }
             });
-            
-            console.log(`  ℹ️ Residentes encontrados en BD: ${residentesExistentes.length} de ${residente_ids.length}`);
             
             if (residentesExistentes.length === 0) {
                 console.error('  ❌ Ninguno de los residentes existe en la BD');

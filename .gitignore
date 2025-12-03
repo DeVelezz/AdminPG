@@ -81,3 +81,5 @@ package-lock.json
 # Dev tools (scripts locales, no trackear)
 backend/dev-tools/
 CHANGES_CLEANUP.md
+.vercel
+.env*.local

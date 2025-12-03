@@ -139,8 +139,6 @@ export default function ModalCrearCobro({ isOpen, onClose, residentes = [], onCo
                 ...formData,
                 nombre: nombreFinal
             };
-            
-            console.log('📤 Enviando cobro con datos:', payload);
 
             const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
             const response = await fetch(`${API_URL}/servicios`, {
@@ -153,12 +151,6 @@ export default function ModalCrearCobro({ isOpen, onClose, residentes = [], onCo
             });
 
             const data = await response.json();
-            
-            console.log('📥 Respuesta del backend:', {
-                status: response.status,
-                ok: response.ok,
-                data: data
-            });
 
             if (!response.ok) {
                 throw new Error(data.message || 'Error al crear el cobro');
@@ -390,11 +382,11 @@ export default function ModalCrearCobro({ isOpen, onClose, residentes = [], onCo
 
                     <div className="flex gap-3 mt-6">
                         <button type="submit" disabled={loading}
-                            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:bg-gray-400">
+                            className="flex-1 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed shadow-sm">
                             {loading ? 'Creando...' : 'Crear Cobro'}
                         </button>
                         <button type="button" onClick={onClose}
-                            className="flex-1 px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors">Cancelar</button>
+                            className="flex-1 px-4 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 transition-colors shadow-sm">Cancelar</button>
                     </div>
                 </form>
             </div>

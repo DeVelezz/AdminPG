@@ -181,13 +181,13 @@ export default function PageActualizarInfo() {
                                         <div className="flex gap-4">
                                             <button
                                                 type="submit"
-                                                className="flex-1 px-4 py-3 bg-blue-600 text-white rounded shadow hover:bg-blue-700 font-medium"
+                                                className="flex-1 px-4 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-800 font-medium transition-colors shadow-sm"
                                             >
                                                 Guardar Cambios
                                             </button>
                                             <button
                                                 type="button"
-                                                className="flex-1 px-4 py-3 bg-gray-500 text-white rounded shadow hover:bg-gray-600 font-medium"
+                                                className="flex-1 px-4 py-3 bg-gray-400 text-white rounded-lg hover:bg-gray-500 font-medium transition-colors shadow-sm"
                                                 onClick={() => window.location.href = "/admin"}
                                             >
                                                 Cancelar

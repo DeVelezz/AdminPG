@@ -6,9 +6,10 @@ import BotonSecundary from "./BotonSecundary";
 import ImgFondo from "./ImgFondo";
 import SectionFooter from "./SectionFooter";
 import ModalCrearCobro from "./ModalCrearCobro";
-import { FaPhone } from "react-icons/fa";
+import { FaPhone, FaEdit, FaTrash, FaEnvelope, FaFilePdf, FaUserPlus } from "react-icons/fa";
 import { SiGmail, SiWhatsapp } from "react-icons/si";
-import { getBadgeColors, getRowBackgroundColor, formatCurrency } from '../utils/estadoUtils';
+import { MdNotifications } from "react-icons/md";
+import { formatCurrency } from '../utils/estadoUtils';
 import { getToken, isAdmin, clearSession } from '../utils/sessionManager';
 
 // Los datos ahora provienen de la API (base de datos)
@@ -527,18 +528,18 @@ export default function PageAdmin() {
                     <div className="shadow-lg mt-6">
                         <div className="bg-white shadow-lg rounded">
                             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center px-4 py-3 gap-3">
-                                <span className="font-bold text-lg text-gray-800">
+                                <span className="font-semibold text-lg text-gray-700">
                                     Información de los residentes ({filteredUsers.length})
                                 </span>
                                 <div className="flex gap-2">
                                     <button 
-                                        className="px-3 py-1 bg-purple-600 text-white text-sm rounded shadow hover:bg-purple-700 transition-colors"
-                                        onClick={() => {
+                                        className="px-4 py-2 bg-slate-700 text-white text-sm rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-2 shadow-sm"
+                                        onClick={async () => {
                                             if (selectedUsers.length === 0) {
                                                 Swal.fire({
                                                     icon: 'warning',
                                                     title: 'Ningún usuario seleccionado',
-                                                    text: 'Selecciona al menos un usuario para generar reporte',
+                                                    text: 'Selecciona al menos un usuario para generar reporte PDF',
                                                     confirmButtonColor: '#3b82f6'
                                                 });
                                                 return;
@@ -546,79 +547,315 @@ export default function PageAdmin() {
                                             
                                             const usuariosSeleccionados = users.filter(u => selectedUsers.includes(u.id));
                                             
-                                            // Generar HTML con tabla de usuarios seleccionados
-                                            const tablaHTML = `
-                                                <div class="text-left max-h-96 overflow-y-auto">
-                                                    <p class="mb-3 text-center"><strong>${usuariosSeleccionados.length}</strong> usuario(s) seleccionado(s)</p>
-                                                    <table class="w-full text-sm">
-                                                        <thead class="bg-gray-100">
+                                            // Mostrar loading
+                                            Swal.fire({
+                                                title: 'Generando informe...',
+                                                text: 'Cargando historial de pagos',
+                                                allowOutsideClick: false,
+                                                didOpen: () => {
+                                                    Swal.showLoading();
+                                                }
+                                            });
+                                            
+                                            // Obtener historial de pagos para cada residente
+                                            const token = getToken();
+                                            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+                                            
+                                            const usuariosConHistorial = await Promise.all(
+                                                usuariosSeleccionados.map(async (usuario) => {
+                                                    try {
+                                                        const residenteId = usuario.residente_id || usuario.id;
+                                                        
+                                                        // Obtener historial y servicios pendientes
+                                                        const [resHist, resServ] = await Promise.all([
+                                                            fetch(`${API_URL}/pagos/historial/${residenteId}`, {
+                                                                headers: {
+                                                                    'Authorization': token ? `Bearer ${token}` : '',
+                                                                    'Content-Type': 'application/json'
+                                                                }
+                                                            }),
+                                                            fetch(`${API_URL}/servicios/residente/${residenteId}`, {
+                                                                headers: {
+                                                                    'Authorization': token ? `Bearer ${token}` : '',
+                                                                    'Content-Type': 'application/json'
+                                                                }
+                                                            })
+                                                        ]);
+                                                        
+                                                        const dataHist = resHist.ok ? await resHist.json() : [];
+                                                        const dataServ = resServ.ok ? await resServ.json() : [];
+                                                        
+                                                        const arrHist = Array.isArray(dataHist) ? dataHist : (dataHist.data ?? []);
+                                                        const arrServ = Array.isArray(dataServ) ? dataServ : (dataServ.data ?? []);
+                                                        
+                                                        // Combinar historial y servicios
+                                                        const mapa = new Map();
+                                                        (arrServ || []).forEach(s => { if (s && s.id !== undefined) mapa.set(String(s.id), s); });
+                                                        (arrHist || []).forEach(s => { if (s && s.id !== undefined) mapa.set(String(s.id), s); });
+                                                        const servicios = Array.from(mapa.values());
+                                                        
+                                                        // Ordenar por fecha de vencimiento descendente
+                                                        servicios.sort((a, b) => {
+                                                            const dateA = new Date(a.fecha_vencimiento || 0);
+                                                            const dateB = new Date(b.fecha_vencimiento || 0);
+                                                            return dateB - dateA;
+                                                        });
+                                                        
+                                                        return { ...usuario, servicios };
+                                                    } catch (error) {
+                                                        console.error('Error cargando historial para', usuario.nombre, error);
+                                                        return { ...usuario, servicios: [] };
+                                                    }
+                                                })
+                                            );
+                                            
+                                            Swal.close();
+                                            
+                                            // Generar HTML para PDF con estilos de impresión
+                                            const htmlContent = `
+                                                <!DOCTYPE html>
+                                                <html>
+                                                <head>
+                                                    <meta charset="UTF-8">
+                                                    <title>Informe de Residentes</title>
+                                                    <style>
+                                                        @page { margin: 1cm; }
+                                                        @media print {
+                                                            body { margin: 0; font-family: Arial, sans-serif; font-size: 10pt; }
+                                                            .page-break { page-break-before: always; }
+                                                            h1 { color: #2563eb; text-align: center; margin: 10px 0 20px; font-size: 24pt; }
+                                                            h2 { color: #1e40af; margin: 30px 0 15px; font-size: 14pt; page-break-after: avoid; }
+                                                            .info { text-align: center; margin-bottom: 25px; color: #666; font-size: 10pt; }
+                                                            .resumen-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 9pt; }
+                                                            .resumen-table th { background-color: #2563eb; color: white; padding: 8px; text-align: left; font-size: 9pt; }
+                                                            .resumen-table td { padding: 6px 8px; border-bottom: 1px solid #ddd; }
+                                                            .resumen-table tr:nth-child(even) { background-color: #f9fafb; }
+                                                            .historial-table { width: 100%; border-collapse: collapse; margin: 15px 0 30px; font-size: 8pt; }
+                                                            .historial-table th { background-color: #6366f1; color: white; padding: 6px 4px; text-align: left; font-size: 8pt; }
+                                                            .historial-table td { padding: 5px 4px; border-bottom: 1px solid #e5e7eb; }
+                                                            .historial-table tr:nth-child(even) { background-color: #fafafa; }
+                                                            .residente-section { margin-bottom: 40px; page-break-inside: avoid; }
+                                                            .residente-header { background-color: #eff6ff; padding: 10px; border-left: 4px solid #2563eb; margin-bottom: 15px; }
+                                                            .footer { margin-top: 20px; text-align: center; color: #666; font-size: 8pt; border-top: 1px solid #ddd; padding-top: 10px; }
+                                                            .estado-badge { padding: 3px 6px; border-radius: 3px; font-size: 8pt; display: inline-block; font-weight: bold; }
+                                                            .al-dia, .pagado { background-color: #dcfce7; color: #166534; }
+                                                            .por-vencer { background-color: #fef3c7; color: #92400e; }
+                                                            .en-mora, .pendiente { background-color: #fee2e2; color: #991b1b; }
+                                                            .vencido { background-color: #fecaca; color: #7f1d1d; }
+                                                        }
+                                                        body { margin: 20px; font-family: Arial, sans-serif; font-size: 11pt; }
+                                                        h1 { color: #2563eb; text-align: center; margin-bottom: 20px; }
+                                                        h2 { color: #1e40af; margin: 30px 0 15px; }
+                                                        .info { text-align: center; margin-bottom: 30px; color: #666; }
+                                                        .resumen-table, .historial-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                                                        .resumen-table th, .historial-table th { background-color: #2563eb; color: white; padding: 10px; text-align: left; }
+                                                        .historial-table th { background-color: #6366f1; }
+                                                        .resumen-table td, .historial-table td { padding: 8px; border-bottom: 1px solid #ddd; }
+                                                        .resumen-table tr:nth-child(even), .historial-table tr:nth-child(even) { background-color: #f9fafb; }
+                                                        .residente-section { margin-bottom: 50px; }
+                                                        .residente-header { background-color: #eff6ff; padding: 15px; border-left: 5px solid #2563eb; margin-bottom: 20px; }
+                                                        .footer { margin-top: 40px; text-align: center; color: #666; font-size: 10pt; border-top: 2px solid #ddd; padding-top: 15px; }
+                                                        .estado-badge { padding: 4px 8px; border-radius: 4px; font-size: 10pt; display: inline-block; font-weight: bold; }
+                                                        .al-dia, .pagado { background-color: #dcfce7; color: #166534; }
+                                                        .por-vencer { background-color: #fef3c7; color: #92400e; }
+                                                        .en-mora, .pendiente { background-color: #fee2e2; color: #991b1b; }
+                                                        .vencido { background-color: #fecaca; color: #7f1d1d; }
+                                                    </style>
+                                                </head>
+                                                <body>
+                                                    <h1>Informe Detallado de Residentes</h1>
+                                                    <div class="info">
+                                                        <p><strong>Fecha de generación:</strong> ${new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                                                        <p><strong>Total de residentes:</strong> ${usuariosConHistorial.length}</p>
+                                                        <p><strong>Deuda total:</strong> ${formatCurrency(usuariosConHistorial.reduce((sum, u) => sum + u.deudaTotal, 0))}</p>
+                                                    </div>
+                                                    
+                                                    <h2>Resumen de Residentes</h2>
+                                                    <table class="resumen-table">
+                                                        <thead>
                                                             <tr>
-                                                                <th class="p-2 text-left">Nombre</th>
-                                                                <th class="p-2 text-left">Torre/Apto</th>
-                                                                <th class="p-2 text-left">Deuda</th>
-                                                                <th class="p-2 text-left">Estado</th>
+                                                                <th>Nombre</th>
+                                                                <th>Torre/Apto</th>
+                                                                <th>Email</th>
+                                                                <th>Teléfono</th>
+                                                                <th>Estado</th>
+                                                                <th>Deuda</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody>
-                                                            ${usuariosSeleccionados.map(u => `
-                                                                <tr class="border-t">
-                                                                    <td class="p-2">${u.nombre}</td>
-                                                                    <td class="p-2">${u.torre}-${u.apartamento}</td>
-                                                                    <td class="p-2">${formatCurrency(u.deudaTotal)}</td>
-                                                                    <td class="p-2">${u.estado}</td>
-                                                                </tr>
-                                                            `).join('')}
+                                                            ${usuariosConHistorial.map(u => {
+                                                                const estadoClass = u.estado.toLowerCase().replace(/\s+/g, '-');
+                                                                return `
+                                                                    <tr>
+                                                                        <td><strong>${u.nombre}</strong></td>
+                                                                        <td>${u.torre}-${u.apartamento}</td>
+                                                                        <td>${u.email}</td>
+                                                                        <td>${u.telefono || 'N/A'}</td>
+                                                                        <td><span class="estado-badge ${estadoClass}">${u.estado}</span></td>
+                                                                        <td><strong>${formatCurrency(u.deudaTotal)}</strong></td>
+                                                                    </tr>
+                                                                `;
+                                                            }).join('')}
                                                         </tbody>
                                                     </table>
-                                                </div>
+                                                    
+                                                    ${usuariosConHistorial.map((usuario, index) => {
+                                                        // Determinar si un servicio está pagado usando la misma lógica que PageResidente
+                                                        const serviciosPagados = usuario.servicios.filter(s => {
+                                                            // Un servicio está pagado si tiene is_paid=true o tiene fecha_pago
+                                                            const tieneFechaPago = s.fecha_pago || s.fechaPago;
+                                                            return s.is_paid === true || s.pagado === true || Boolean(tieneFechaPago);
+                                                        });
+                                                        const serviciosPendientes = usuario.servicios.filter(s => {
+                                                            const tieneFechaPago = s.fecha_pago || s.fechaPago;
+                                                            return s.is_paid !== true && s.pagado !== true && !tieneFechaPago;
+                                                        });
+                                                        
+                                                        return `
+                                                            <div class="residente-section ${index > 0 ? 'page-break' : ''}">
+                                                                <div class="residente-header">
+                                                                    <h2 style="margin: 0; color: #1e40af;">
+                                                                        ${usuario.nombre} - Torre ${usuario.torre}, Apto ${usuario.apartamento}
+                                                                    </h2>
+                                                                    <p style="margin: 5px 0 0; color: #666; font-size: 10pt;">
+                                                                        Email: ${usuario.email} | Tel: ${usuario.telefono || 'N/A'} | 
+                                                                        Estado: <span class="estado-badge ${usuario.estado.toLowerCase().replace(/\s+/g, '-')}">${usuario.estado}</span>
+                                                                    </p>
+                                                                </div>
+                                                                
+                                                                ${serviciosPendientes.length > 0 ? `
+                                                                    <h3 style="color: #dc2626; margin: 20px 0 10px;">⚠️ Pagos Pendientes (${serviciosPendientes.length})</h3>
+                                                                    <table class="historial-table">
+                                                                        <thead>
+                                                                            <tr>
+                                                                                <th>Concepto</th>
+                                                                                <th>ID Cobro</th>
+                                                                                <th>Monto</th>
+                                                                                <th>Fecha Límite</th>
+                                                                                <th>Estado</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody>
+                                                                            ${serviciosPendientes.map(s => {
+                                                                                // Calcular estado real basado en fecha de vencimiento
+                                                                                let estadoReal = 'Pendiente';
+                                                                                if (s.fecha_vencimiento || s.fechaVencimiento) {
+                                                                                    const fechaVenc = s.fecha_vencimiento || s.fechaVencimiento;
+                                                                                    const vencimiento = new Date(fechaVenc);
+                                                                                    const hoy = new Date();
+                                                                                    const vencDate = new Date(vencimiento.getFullYear(), vencimiento.getMonth(), vencimiento.getDate());
+                                                                                    const hoyDate = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+                                                                                    const diasRestantes = Math.floor((vencDate - hoyDate) / (1000 * 60 * 60 * 24));
+                                                                                    
+                                                                                    if (diasRestantes < 0) {
+                                                                                        estadoReal = 'En mora';
+                                                                                    } else {
+                                                                                        estadoReal = 'Por vencer';
+                                                                                    }
+                                                                                }
+                                                                                const estadoClass = estadoReal.toLowerCase().replace(/\s+/g, '-');
+                                                                                return `
+                                                                                    <tr>
+                                                                                        <td><strong>${s.concepto || 'N/A'}</strong></td>
+                                                                                        <td>${s.id_cobro || s.id || 'N/A'}</td>
+                                                                                        <td><strong>${formatCurrency(s.monto || 0)}</strong></td>
+                                                                                        <td>${formatDate(s.fecha_vencimiento || s.fechaVencimiento)}</td>
+                                                                                        <td><span class="estado-badge ${estadoClass}">${estadoReal}</span></td>
+                                                                                    </tr>
+                                                                                `;
+                                                                            }).join('')}
+                                                                        </tbody>
+                                                                    </table>
+                                                                ` : '<p style="color: #059669; margin: 20px 0;">✓ No tiene pagos pendientes</p>'}
+                                                                
+                                                                ${serviciosPagados.length > 0 ? `
+                                                                    <h3 style="color: #059669; margin: 20px 0 10px;">✓ Historial de Pagos (${serviciosPagados.length})</h3>
+                                                                    <table class="historial-table">
+                                                                        <thead>
+                                                                            <tr>
+                                                                                <th>Concepto</th>
+                                                                                <th>ID Cobro</th>
+                                                                                <th>Monto</th>
+                                                                                <th>Fecha Límite</th>
+                                                                                <th>Fecha Pago</th>
+                                                                                <th>Método</th>
+                                                                                <th>Referencia</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody>
+                                                                            ${serviciosPagados.map(s => `
+                                                                                <tr>
+                                                                                    <td>${s.concepto || 'N/A'}</td>
+                                                                                    <td>${s.id_cobro || s.id || 'N/A'}</td>
+                                                                                    <td>${formatCurrency(s.monto || 0)}</td>
+                                                                                    <td>${formatDate(s.fecha_vencimiento)}</td>
+                                                                                    <td>${formatDate(s.fecha_pago)}</td>
+                                                                                    <td>${s.metodo_pago || '—'}</td>
+                                                                                    <td>${s.referencia_pago || '—'}</td>
+                                                                                </tr>
+                                                                            `).join('')}
+                                                                        </tbody>
+                                                                    </table>
+                                                                ` : '<p style="color: #6b7280; margin: 20px 0;">Sin historial de pagos</p>'}
+                                                            </div>
+                                                        `;
+                                                    }).join('')}
+                                                    
+                                                    <div class="footer">
+                                                        <p><strong>Informe generado por AdminPG</strong> - Sistema de Gestión de Propiedades</p>
+                                                        <p>Este documento contiene información confidencial - ${new Date().toLocaleString('es-ES')}</p>
+                                                    </div>
+                                                </body>
+                                                </html>
                                             `;
                                             
+                                            // Abrir en nueva ventana para imprimir/guardar como PDF
+                                            const printWindow = window.open('', '_blank');
+                                            printWindow.document.write(htmlContent);
+                                            printWindow.document.close();
+                                            
+                                            // Dar tiempo para que cargue y luego abrir diálogo de impresión
+                                            setTimeout(() => {
+                                                printWindow.print();
+                                            }, 250);
+                                            
                                             Swal.fire({
-                                                title: 'Generar reporte en Excel',
-                                                html: tablaHTML,
-                                                showCancelButton: true,
-                                                confirmButtonText: 'Descargar Excel',
-                                                cancelButtonText: 'Cerrar',
-                                                confirmButtonColor: '#3b82f6',
-                                                width: '800px'
-                                            }).then((result) => {
-                                                if (result.isConfirmed) {
-                                                    Swal.fire({
-                                                        icon: 'info',
-                                                        title: 'Descarga de Excel',
-                                                        text: 'La función de descarga de Excel estará disponible próximamente',
-                                                        timer: 2000
-                                                    });
-                                                }
+                                                icon: 'success',
+                                                title: 'PDF generado',
+                                                text: 'Se abrió una ventana para imprimir o guardar como PDF',
+                                                timer: 2000,
+                                                showConfirmButton: false
                                             });
                                         }}
                                     >
-                                        Reporte en Excel
+                                        <FaFilePdf className="w-4 h-4" />
+                                        Informe PDF
                                     </button>
                                     <button 
-                                        className="px-3 py-1 bg-red-600 text-white text-sm rounded shadow hover:bg-red-700 transition-colors"
+                                        className="px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 shadow-sm"
                                         onClick={handleDeleteSelected}
                                     >
-                                        Eliminar seleccionados ({selectedUsers.length})
+                                        <FaTrash className="w-3.5 h-3.5" />
+                                        Eliminar ({selectedUsers.length})
                                     </button>
                                 </div>
                             </div>
 
-                            <div className="bg-gray-50 p-4">
-                                <div className="flex flex-col lg:flex-row gap-4">
+                            <div className="bg-gray-50 p-1.5 xxs:p-2 sm:p-3 md:p-4">
+                                <div className="flex flex-col sm:flex-row lg:flex-row gap-1.5 xxs:gap-2 sm:gap-3 md:gap-4">
                                     <div className="flex-1">
                                         <input
                                             type="text"
-                                            placeholder="Buscar por nombre, email o apartamento..."
-                                            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            placeholder="Buscar..."
+                                            className="w-full px-1 xxs:px-2 sm:px-3 py-0.5 xxs:py-1.5 sm:py-2 text-[9px] xxs:text-xs sm:text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
                                         />
                                     </div>
                                     
-                                    <div className="sm:w-48">
+                                    <div className="w-full sm:w-40 md:w-48">
                                         <select
-                                            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            className="w-full px-1 xxs:px-2 sm:px-3 py-0.5 xxs:py-1.5 sm:py-2 text-[9px] xxs:text-xs sm:text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                                             value={filterStatus}
                                             onChange={(e) => setFilterStatus(e.target.value)}
                                         >
@@ -629,9 +866,9 @@ export default function PageAdmin() {
                                         </select>
                                     </div>
                                     
-                                    <div className="sm:w-48">
+                                    <div className="w-full sm:w-40 md:w-48">
                                         <select
-                                            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            className="w-full px-1.5 xxs:px-2 sm:px-3 py-1 xxs:py-1.5 sm:py-2 text-xxs xxs:text-xs sm:text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                                             value={filterTower}
                                             onChange={(e) => setFilterTower(e.target.value)}
                                         >
@@ -663,13 +900,14 @@ export default function PageAdmin() {
                                     </div>
                                 ) : (
                                     <div>
-                                        <div className="overflow-x-auto rounded-lg border-gray-300 border shadow-lg p-2">
-                                            <table className="w-full bg-white rounded ">
-                                                <thead className="bg-gray-200 text-gray-700">
+                                        <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+                                            <table className="w-full bg-white text-[9px] xxs:text-xs sm:text-sm 2xl:text-base">
+                                                <thead className="bg-gray-50 border-b border-gray-200">
                                                     <tr>
-                                                        <th className="px-4 py-2 text-left">
+                                                        <th className="px-4 py-3 text-left">
                                                             <input
                                                                 type="checkbox"
+                                                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                                                 checked={selectedUsers.length > 0 && selectedUsers.length === filteredUsers.length}
                                                                 onChange={(e) => {
                                                                     if (e.target.checked) {
@@ -680,14 +918,14 @@ export default function PageAdmin() {
                                                                 }}
                                                             />
                                                         </th>
-                                                        <th className="px-4 py-2 text-left">Nombre Completo</th>
-                                                        <th className="px-4 py-2 text-left hidden md:table-cell">Email</th>
-                                                        <th className="px-4 py-2 text-left">Deuda</th>
-                                                        <th className="px-4 py-2 text-left">Últ. vencimiento</th>
-                                                        <th className="px-4 py-2 text-left">Torre</th>
-                                                        <th className="px-4 py-2 text-left">Apartamento</th>
-                                                        <th className="px-4 py-2 text-left">Estado</th>
-                                                        <th className="px-4 py-2 text-center">Acciones</th>
+                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Nombre</th>
+                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 hidden md:table-cell">Email</th>
+                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Deuda</th>
+                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 hidden sm:table-cell">Vencimiento</th>
+                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 hidden lg:table-cell">Torre</th>
+                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 hidden lg:table-cell">Apto</th>
+                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Estado</th>
+                                                        <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700">Acciones</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -700,7 +938,7 @@ export default function PageAdmin() {
                                                     ) : currentUsers.map((user) => (
                                                         <tr 
                                                             key={`${user.id}-${user.nombre}`}
-                                                            className={` hover:bg-blue-50 cursor-pointer transition-colors ${selectedUsers.includes(user.id) ? 'bg-blue-200' : getRowBackgroundColor(user.estado)}`}
+                                                            className={`hover:bg-gray-50 cursor-pointer transition-colors ${selectedUsers.includes(user.id) ? 'bg-blue-50 border-l-4 border-blue-500' : 'border-l-4 border-transparent'}`}
                                                             onClick={() => {
                                                                 // Navegar a la vista del residente pasando los datos por query string
                                                                 const residenteData = {
@@ -711,9 +949,10 @@ export default function PageAdmin() {
                                                                 window.location.href = `/residente?data=${data}&fromAdmin=true`;
                                                             }}
                                                         >
-                                                            <td className="px-4 py-2">
+                                                            <td className="px-4 py-3 border-b border-gray-100">
                                                                 <input
                                                                     type="checkbox"
+                                                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                                                     checked={selectedUsers.includes(user.id)}
                                                                     onClick={(e) => e.stopPropagation()}
                                                                     onChange={(e) => {
@@ -725,40 +964,44 @@ export default function PageAdmin() {
                                                                     }}
                                                                 />
                                                             </td>
-                                                            <td className="px-4 py-2 font-medium cursor-pointer" onClick={() => {
+                                                            <td className="px-4 py-3 border-b border-gray-100 font-medium text-gray-900 cursor-pointer" onClick={() => {
                                                                 // Navegar a la vista del residente pasando los datos por query string
                                                                 const data = encodeURIComponent(JSON.stringify(user));
                                                                 window.location.href = `/residente?data=${data}&fromAdmin=true`;
                                                             }}>{user.nombre}</td>
-                                                            <td className="px-4 py-2 hidden md:table-cell">{user.email}</td>
-                                                            <td className="px-4 py-2">{formatCurrency(user.deudaTotal)}</td>
-                                                            <td className="px-4 py-2">{formatDate(user.ultimoVencimiento)}</td>
-                                                            <td className="px-4 py-2">{user.torre}</td>
-                                                            <td className="px-4 py-2">{user.apartamento}</td>
-                                                            <td className="px-4 py-2">
-                                                                <span className={`text-xs px-2 py-1 rounded w-20 flex justify-center ${getBadgeColors(user.estado)}`}>
+                                                            <td className="px-4 py-3 border-b border-gray-100 text-gray-600 hidden md:table-cell">{user.email}</td>
+                                                            <td className="px-4 py-3 border-b border-gray-100 font-semibold text-gray-900">{formatCurrency(user.deudaTotal)}</td>
+                                                            <td className="px-4 py-3 border-b border-gray-100 text-gray-600 text-sm hidden sm:table-cell">{formatDate(user.ultimoVencimiento)}</td>
+                                                            <td className="px-4 py-3 border-b border-gray-100 text-gray-700 hidden lg:table-cell">{user.torre}</td>
+                                                            <td className="px-4 py-3 border-b border-gray-100 text-gray-700 hidden lg:table-cell">{user.apartamento}</td>
+                                                            <td className="px-4 py-3 border-b border-gray-100">
+                                                                <span className={`text-xs sm:text-sm 2xl:text-base px-2 sm:px-3 py-0.5 sm:py-1 rounded-full font-medium inline-flex items-center ${
+                                                                    user.estado.toLowerCase().includes('mora') || user.estado.toLowerCase().includes('pendiente') 
+                                                                        ? 'bg-red-50 text-red-700 border border-red-200' 
+                                                                        : user.estado.toLowerCase().includes('vencer') 
+                                                                        ? 'bg-amber-50 text-amber-700 border border-amber-200' 
+                                                                        : 'bg-green-50 text-green-700 border border-green-200'
+                                                                }`}>
                                                                     {user.estado}
                                                                 </span>
                                                             </td>
-                                                            {/* Opcional: mostrar fecha de vencimiento */}
-                                                            {/* <td className="px-4 py-2">{user.ultimoVencimiento ? new Date(user.ultimoVencimiento).toLocaleDateString() : '-'}</td> */}
-                                                            <td className="px-4 py-2 text-center">
-                                                                <div className="flex flex-row flex-nowrap gap-1 justify-center items-center">
+                                                            <td className="px-4 py-3 border-b border-gray-100 text-center">
+                                                                <div className="flex flex-row flex-nowrap gap-1.5 justify-center items-center">
                                                                     {/* Botón Editar */}
                                                                     <button 
-                                                                        className="px-2 py-1 bg-blue-600 text-white text-xs rounded shadow hover:bg-blue-700 transition-colors whitespace-nowrap"
+                                                                        className="p-1.5 sm:p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
                                                                             handleEditUser(user);
                                                                         }}
                                                                         title="Editar usuario"
                                                                     >
-                                                                        Editar
+                                                                        <FaEdit className="w-3.5 h-3.5 sm:w-4 sm:h-4 2xl:w-5 2xl:h-5" />
                                                                     </button>
                                                                     
                                                                     {/* Botón Contactar */}
                                                                     <button
-                                                                        className="px-2 py-1 bg-yellow-300 text-gray-900 text-xs rounded shadow hover:bg-yellow-400 transition-colors font-semibold whitespace-nowrap"
+                                                                        className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
                                                                             const telefono = user.telefono || '';
@@ -779,7 +1022,7 @@ export default function PageAdmin() {
                                                                         }}
                                                                         title="Contactar residente"
                                                                     >
-                                                                        Contactar
+                                                                        <FaPhone className="w-4 h-4" />
                                                                     </button>
                                                                     
                                                                     {/* Menú desplegable de contacto */}
@@ -789,7 +1032,7 @@ export default function PageAdmin() {
                                                                     
                                                                     {/* Botón Eliminar */}
                                                                     <button
-                                                                        className="px-2 py-1 bg-red-600 text-white text-xs rounded shadow hover:bg-red-700 transition-colors whitespace-nowrap"
+                                                                        className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                                                         onClick={async (e) => {
                                                                             e.stopPropagation();
                                                                             const result = await Swal.fire({
@@ -820,7 +1063,6 @@ export default function PageAdmin() {
                                                                                         throw new Error(body || `Status ${resp.status}`);
                                                                                     }
 
-                                                                                    // If row was selected, remove from selectedUsers
                                                                                     setSelectedUsers(prev => prev.filter(id => id !== user.id));
                                                                                     await loadUsers();
                                                                                     Swal.fire({ icon: 'success', title: 'Eliminado', text: `${user.nombre} eliminado correctamente`, timer: 1800 });
@@ -832,7 +1074,7 @@ export default function PageAdmin() {
                                                                         }}
                                                                         title="Eliminar usuario"
                                                                     >
-                                                                        Eliminar
+                                                                        <FaTrash className="w-4 h-4" />
                                                                     </button>
                                                                 </div>
                                                             </td>
@@ -962,8 +1204,8 @@ export default function PageAdmin() {
                             </div>
 
                             <div className="flex gap-3 mt-6">
-                                <button disabled={!validateEditForm()} className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-60" onClick={saveEditedUser}>Guardar</button>
-                                <button className="flex-1 px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600" onClick={() => { setShowEditModal(false); setEditForm(null); }}>Cancelar</button>
+                                <button disabled={!validateEditForm()} className="flex-1 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" onClick={saveEditedUser}>Guardar</button>
+                                <button className="flex-1 px-4 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 transition-colors" onClick={() => { setShowEditModal(false); setEditForm(null); }}>Cancelar</button>
                             </div>
                         </div>
                     </div>
