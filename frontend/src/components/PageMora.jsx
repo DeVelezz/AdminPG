@@ -220,24 +220,24 @@ export default function PageMora() {
                                                         placeholder="Buscar..."
                                                         value={searchTerm}
                                                         onChange={(e) => { setSearchTerm(e.target.value); setPaginaActual(1); }}
-                                                        className="w-full px-1 xxs:px-2 sm:px-3 py-0.5 xxs:py-1.5 sm:py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-[9px] xxs:text-xs sm:text-sm"
+                                                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
                                                     />
                                                 </div>
                                                 <div className="text-xs sm:text-sm text-gray-600 text-center sm:text-left">
                                                     Mostrando <span className="font-semibold">{residentesPagina.length}</span> de <span className="font-semibold">{totalMorosos}</span> morosos
                                                 </div>
                                             </div>
-                                            <table className="w-full bg-white rounded text-[9px] xxs:text-xs sm:text-sm 2xl:text-base">
+                                            <table className="w-full bg-white rounded text-xs sm:text-sm 2xl:text-base">
                                             <thead>
                                                 <tr className="bg-gray-50 border-b border-gray-200">
-                                                    <th className="px-1 xxs:px-2 sm:px-3 py-2 xxs:py-3 text-left text-xxs xxs:text-xs sm:text-sm font-semibold text-gray-700">Nombre</th>
-                                                    <th className="px-1 xxs:px-2 sm:px-3 py-2 xxs:py-3 text-left text-xxs xxs:text-xs sm:text-sm font-semibold text-gray-700 hidden lg:table-cell">Torre</th>
-                                                    <th className="px-1 xxs:px-2 sm:px-3 py-2 xxs:py-3 text-left text-xxs xxs:text-xs sm:text-sm font-semibold text-gray-700 hidden lg:table-cell">Apto</th>
-                                                    <th className="px-1 xxs:px-2 sm:px-3 py-2 xxs:py-3 text-left text-xxs xxs:text-xs sm:text-sm font-semibold text-gray-700 hidden md:table-cell">Concepto</th>
-                                                    <th className="px-1 xxs:px-2 sm:px-3 py-2 xxs:py-3 text-left text-xxs xxs:text-xs sm:text-sm font-semibold text-gray-700">Monto</th>
-                                                    <th className="px-1 xxs:px-2 sm:px-3 py-2 xxs:py-3 text-left text-xxs xxs:text-xs sm:text-sm font-semibold text-gray-700 hidden sm:table-cell">Vencimiento</th>
-                                                    <th className="px-1 xxs:px-2 sm:px-3 py-2 xxs:py-3 text-left text-xxs xxs:text-xs sm:text-sm font-semibold text-gray-700 hidden md:table-cell">Días vencidos</th>
-                                                    <th className="px-1 xxs:px-2 sm:px-3 py-2 xxs:py-3 text-center text-xxs xxs:text-xs sm:text-sm font-semibold text-gray-700">Contacto</th>
+                                                    <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700">Nombre</th>
+                                                    <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 hidden lg:table-cell">Torre</th>
+                                                    <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 hidden lg:table-cell">Apto</th>
+                                                    <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 hidden md:table-cell">Concepto</th>
+                                                    <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700">Monto</th>
+                                                    <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 hidden sm:table-cell">Vencimiento</th>
+                                                    <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 hidden md:table-cell">Días vencidos</th>
+                                                    <th className="px-2 sm:px-3 py-2 sm:py-3 text-center text-xs sm:text-sm font-semibold text-gray-700">Contacto</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -247,14 +247,14 @@ export default function PageMora() {
                                                         className="hover:bg-gray-50 cursor-pointer transition-colors border-l-4 border-red-500"
                                                         onClick={() => navigateToResidente(residente)}
                                                     >
-                                                        <td className="px-1 xxs:px-2 sm:px-3 py-1.5 xxs:py-2 sm:py-3 border-b border-gray-100 font-medium text-gray-900 text-xxs xxs:text-xs sm:text-sm">{residente.nombre}</td>
-                                                        <td className="px-1 xxs:px-2 sm:px-3 py-1.5 xxs:py-2 sm:py-3 border-b border-gray-100 text-gray-700 text-xxs xxs:text-xs sm:text-sm hidden lg:table-cell">{residente.torre}</td>
-                                                        <td className="px-1 xxs:px-2 sm:px-3 py-1.5 xxs:py-2 sm:py-3 border-b border-gray-100 text-gray-700 text-xxs xxs:text-xs sm:text-sm hidden lg:table-cell">{residente.apartamento}</td>
-                                                        <td className="px-1 xxs:px-2 sm:px-3 py-1.5 xxs:py-2 sm:py-3 border-b border-gray-100 text-gray-600 text-xxs xxs:text-xs sm:text-sm hidden md:table-cell">{residente.concepto}</td>
-                                                        <td className="px-1 xxs:px-2 sm:px-3 py-1.5 xxs:py-2 sm:py-3 border-b border-gray-100 font-semibold text-gray-900 text-xxs xxs:text-xs sm:text-sm">{formatCurrency(residente.monto)}</td>
-                                                        <td className="px-1 xxs:px-2 sm:px-3 py-1.5 xxs:py-2 sm:py-3 border-b border-gray-100 text-gray-600 text-xxs xxs:text-xs hidden sm:table-cell">{residente.fechaVencimiento}</td>
-                                                        <td className="px-1 xxs:px-2 sm:px-3 py-1.5 xxs:py-2 sm:py-3 border-b border-gray-100 hidden md:table-cell">
-                                                            <span className="text-xxs xxs:text-xs px-1.5 xxs:px-2 sm:px-3 py-0.5 xxs:py-1 rounded-full font-medium inline-flex items-center bg-red-50 text-red-700 border border-red-200">
+                                                        <td className="px-2 sm:px-3 py-2 sm:py-3 border-b border-gray-100 font-medium text-gray-900 text-xs sm:text-sm">{residente.nombre}</td>
+                                                        <td className="px-2 sm:px-3 py-2 sm:py-3 border-b border-gray-100 text-gray-700 text-xs sm:text-sm hidden lg:table-cell">{residente.torre}</td>
+                                                        <td className="px-2 sm:px-3 py-2 sm:py-3 border-b border-gray-100 text-gray-700 text-xs sm:text-sm hidden lg:table-cell">{residente.apartamento}</td>
+                                                        <td className="px-2 sm:px-3 py-2 sm:py-3 border-b border-gray-100 text-gray-600 text-xs sm:text-sm hidden md:table-cell">{residente.concepto}</td>
+                                                        <td className="px-2 sm:px-3 py-2 sm:py-3 border-b border-gray-100 font-semibold text-gray-900 text-xs sm:text-sm">{formatCurrency(residente.monto)}</td>
+                                                        <td className="px-2 sm:px-3 py-2 sm:py-3 border-b border-gray-100 text-gray-600 text-xs sm:text-sm hidden sm:table-cell">{residente.fechaVencimiento}</td>
+                                                        <td className="px-2 sm:px-3 py-2 sm:py-3 border-b border-gray-100 hidden md:table-cell">
+                                                            <span className="text-xs sm:text-sm px-2 sm:px-3 py-1 rounded-full font-medium inline-flex items-center bg-red-50 text-red-700 border border-red-200">
                                                                 {Math.abs(residente.diasVencimiento)} días
                                                             </span>
                                                         </td>

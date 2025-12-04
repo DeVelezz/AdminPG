@@ -160,24 +160,24 @@ export default function PageLogin({ onLogin }) {
                             
                             <form onSubmit={handleSubmit}>
                                 <div className="mb-2 xxs:mb-4 sm:mb-6">
-                                    <label className="block text-[9px] xxs:text-xs sm:text-sm font-medium text-gray-700 mb-0.5 xxs:mb-1 sm:mb-2">Email</label>
+                                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Email</label>
                                     <input
                                         type="email"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
-                                        className="w-full px-1.5 xxs:px-3 sm:px-4 py-1 xxs:py-2 sm:py-3 text-[10px] xxs:text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         placeholder="correo@ejemplo.com"
                                         required
                                     />
                                 </div>
 
                                 <div className="mb-2 xxs:mb-6 sm:mb-8">
-                                    <label className="block text-[9px] xxs:text-xs sm:text-sm font-medium text-gray-700 mb-0.5 xxs:mb-1 sm:mb-2">Contraseña</label>
+                                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Contraseña</label>
                                     <input
                                         type="password"
                                         value={contrasena}
                                         onChange={(e) => setContrasena(e.target.value)}
-                                        className="w-full px-1.5 xxs:px-3 sm:px-4 py-1 xxs:py-2 sm:py-3 text-[10px] xxs:text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         placeholder="••••••••"
                                         required
                                     />
@@ -185,7 +185,7 @@ export default function PageLogin({ onLogin }) {
 
                                 <button
                                     type="submit"
-                                    className="w-full px-2 xxs:px-3 sm:px-4 py-1 xxs:py-2 sm:py-3 text-[10px] xxs:text-sm sm:text-base bg-slate-700 text-white rounded-lg hover:bg-slate-800 font-medium transition-colors shadow-sm"
+                                    className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base bg-slate-700 text-white rounded-lg hover:bg-slate-800 font-medium transition-colors shadow-sm"
                                 >
                                     Iniciar Sesión
                                 </button>

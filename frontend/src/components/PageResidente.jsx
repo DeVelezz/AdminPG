@@ -751,24 +751,24 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
                                             }`}>
                                                 {residente.nombre}
                                             </span>
-                                            <span className="text-[10px] xxs:text-xs sm:text-sm text-gray-600">Torre {residente.torre} - Apto {residente.apartamento}</span>
+                                            <span className="text-xs sm:text-sm text-gray-600">Torre {residente.torre} - Apto {residente.apartamento}</span>
                                         </div>
                                         
                                         {/* Contacto */}
                                         <div className="flex flex-col gap-1">
-                                            <div className="text-[10px] xxs:text-xs sm:text-sm">
+                                            <div className="text-xs sm:text-sm">
                                                 <span className="text-gray-600">Tel: </span>
                                                 <span className="font-medium">{residente.telefono}</span>
                                             </div>
-                                            <div className="text-[10px] xxs:text-xs sm:text-sm">
+                                            <div className="text-xs sm:text-sm">
                                                 <span className="text-gray-600">Email: </span>
                                                 <span className="font-medium break-all">{residente.email}</span>
                                             </div>
                                         </div>
                                         
                                         {/* Badges de estado */}
-                                        <div className="flex gap-1.5 xxs:gap-2 items-center flex-wrap">
-                                            <span className={`text-[8px] xxs:text-xs px-1.5 xxs:px-3 py-0.5 xxs:py-1 rounded-full font-medium inline-flex items-center ${
+                                        <div className="flex gap-2 sm:gap-3 items-center flex-wrap">
+                                            <span className={`text-xs sm:text-sm px-2 sm:px-3 py-1 rounded-full font-medium inline-flex items-center ${
                                                 estadoGeneralResidente.toLowerCase().includes('mora') || estadoGeneralResidente.toLowerCase().includes('pendiente') 
                                                     ? 'bg-red-50 text-red-700 border border-red-200' 
                                                     : estadoGeneralResidente.toLowerCase().includes('vencer') 
@@ -776,17 +776,17 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
                                                     : 'bg-green-50 text-green-700 border border-green-200'
                                             }`}>{estadoGeneralResidente}</span>
                                             {((residente && Number(residente.diasMora) > 0) || diasMora > 0) && (
-                                                <span className="text-[8px] xxs:text-xs px-1.5 xxs:px-3 py-0.5 xxs:py-1 rounded-full font-medium inline-flex items-center bg-red-50 text-red-700 border border-red-200">
-                                                    Mora: { (residente && Number(residente.diasMora) > 0) ? Number(residente.diasMora) : diasMora }d
+                                                <span className="text-xs sm:text-sm px-2 sm:px-3 py-1 rounded-full font-medium inline-flex items-center bg-red-50 text-red-700 border border-red-200">
+                                                    Mora: { (residente && Number(residente.diasMora) > 0) ? Number(residente.diasMora) : diasMora } días
                                                 </span>
                                             )}
-                                            <span className="text-[8px] xxs:text-xs px-1.5 xxs:px-3 py-0.5 xxs:py-1 rounded-full font-medium inline-flex items-center bg-gray-50 text-gray-700 border border-gray-200">
+                                            <span className="text-xs sm:text-sm px-2 sm:px-3 py-1 rounded-full font-medium inline-flex items-center bg-gray-50 text-gray-700 border border-gray-200">
                                                 Deuda: {formatCurrency((residente && typeof residente.totalDeuda === 'number') ? residente.totalDeuda : deudaTotal)}
                                             </span>
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="flex flex-col gap-2 xxs:gap-3 sm:gap-4">
+                                    <div className="flex flex-col gap-2 sm:gap-4">
                                         <div className="text-center">
                                             <span className={`font-semibold text-sm xxs:text-base sm:text-xl text-gray-800 border-b-2 xxs:border-b-4 pb-1 inline-block ${
                                                 estadoGeneralResidente.toLowerCase().includes('mora') ? 'border-red-500' :
@@ -798,15 +798,15 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
                                         </div>
                                         
                                         {/* Info básica en columna para móvil, fila para desktop */}
-                                        <div className="flex flex-col sm:flex-row sm:justify-center gap-1 xxs:gap-2 sm:gap-8 text-center sm:text-left">
-                                            <div className="text-[10px] xxs:text-xs sm:text-sm">
+                                        <div className="flex flex-col sm:flex-row sm:justify-center gap-2 sm:gap-8 text-center sm:text-left">
+                                            <div className="text-xs sm:text-sm">
                                                 <span className="text-gray-800 font-medium">Torre {residente.torre} - Apto {residente.apartamento}</span>
                                             </div>
-                                            <div className="text-[10px] xxs:text-xs sm:text-sm">
+                                            <div className="text-xs sm:text-sm">
                                                 <span className="text-gray-600">Tel: </span>
                                                 <span className="font-medium">{residente.telefono}</span>
                                             </div>
-                                            <div className="text-[10px] xxs:text-xs sm:text-sm">
+                                            <div className="text-xs sm:text-sm">
                                                 <span className="text-gray-600">Email: </span>
                                                 <span className="font-medium break-all">{residente.email}</span>
                                             </div>
@@ -814,14 +814,14 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
                                         
                                         {/* Badges si hay deuda/mora */}
                                         {((residente && Number(residente.diasMora) > 0) || (residente && typeof residente.totalDeuda === 'number' && residente.totalDeuda > 0) || diasMora > 0 || deudaTotal > 0) && (
-                                            <div className="flex gap-1.5 xxs:gap-2 sm:gap-3 justify-center flex-wrap">
+                                            <div className="flex gap-2 sm:gap-3 justify-center flex-wrap">
                                                 {((residente && Number(residente.diasMora) > 0) || diasMora > 0) && (
-                                                    <span className="text-[8px] xxs:text-xs px-1.5 xxs:px-3 py-0.5 xxs:py-1 rounded-full font-medium inline-flex items-center bg-red-50 text-red-700 border border-red-200">
-                                                        Mora: { (residente && Number(residente.diasMora) > 0) ? Number(residente.diasMora) : diasMora }d
+                                                    <span className="text-xs sm:text-sm px-2 sm:px-3 py-1 rounded-full font-medium inline-flex items-center bg-red-50 text-red-700 border border-red-200">
+                                                        Mora: { (residente && Number(residente.diasMora) > 0) ? Number(residente.diasMora) : diasMora } días
                                                     </span>
                                                 )}
                                                 {(((residente && typeof residente.totalDeuda === 'number') ? residente.totalDeuda : deudaTotal) > 0) && (
-                                                    <span className="text-[8px] xxs:text-xs px-1.5 xxs:px-3 py-0.5 xxs:py-1 rounded-full font-medium inline-flex items-center bg-gray-50 text-gray-700 border border-gray-200">
+                                                    <span className="text-xs sm:text-sm px-2 sm:px-3 py-1 rounded-full font-medium inline-flex items-center bg-gray-50 text-gray-700 border border-gray-200">
                                                         Deuda: {formatCurrency((residente && typeof residente.totalDeuda === 'number') ? residente.totalDeuda : deudaTotal)}
                                                     </span>
                                                 )}
@@ -854,13 +854,13 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
                                             <table className="w-full bg-white">
                                                 <thead className="bg-gray-50 border-b border-gray-200">
                                                     <tr>
-                                                        <th className="px-0.5 xxs:px-2 sm:px-4 py-1 xxs:py-3 text-left text-[9px] xxs:text-xs sm:text-sm font-semibold text-gray-700">Concepto</th>
-                                                        <th className="px-0.5 xxs:px-2 sm:px-4 py-1 xxs:py-3 text-left text-[9px] xxs:text-xs sm:text-sm font-semibold text-gray-700 hidden lg:table-cell">ID Cobro</th>
-                                                        {esDesdeMora && <th className="px-0.5 xxs:px-2 sm:px-4 py-1 xxs:py-3 text-left text-[9px] xxs:text-xs sm:text-sm font-semibold text-gray-700 hidden xl:table-cell">Fecha Emisión</th>}
-                                                        <th className="px-0.5 xxs:px-2 sm:px-4 py-1 xxs:py-3 text-left text-[9px] xxs:text-xs sm:text-sm font-semibold text-gray-700">Monto</th>
-                                                        <th className="px-0.5 xxs:px-2 sm:px-4 py-1 xxs:py-3 text-left text-[9px] xxs:text-xs sm:text-sm font-semibold text-gray-700 hidden md:table-cell">Fecha límite</th>
-                                                        <th className="px-0.5 xxs:px-2 sm:px-4 py-1 xxs:py-3 text-left text-[9px] xxs:text-xs sm:text-sm font-semibold text-gray-700 hidden sm:table-cell">Días</th>
-                                                        <th className="px-0.5 xxs:px-2 sm:px-4 py-1 xxs:py-3 text-left text-[9px] xxs:text-xs sm:text-sm font-semibold text-gray-700">Estado</th>
+                                                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700">Concepto</th>
+                                                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 hidden lg:table-cell">ID Cobro</th>
+                                                        {esDesdeMora && <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 hidden xl:table-cell">Fecha Emisión</th>}
+                                                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700">Monto</th>
+                                                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 hidden md:table-cell">Fecha límite</th>
+                                                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 hidden sm:table-cell">Días</th>
+                                                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-700">Estado</th>
                                                         {/* Mostrar columnas de pago siempre (para historial y servicios actuales) */}
                                                         <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 hidden lg:table-cell">Fecha Pago</th>
                                                         <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 hidden xl:table-cell">Método</th>
@@ -884,11 +884,11 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
                                                         <tr key={servicio.id} className={`hover:bg-gray-50 transition-colors border-l-2 xxs:border-l-4 ${
                                                             isPaid ? 'border-green-500' : (servicio.diasVencimiento < 0 ? 'border-red-500' : 'border-amber-500')
                                                         }`}>
-                                                            <td className="px-0.5 xxs:px-2 sm:px-4 py-1 xxs:py-2 sm:py-3 border-b border-gray-100 font-medium text-gray-900 text-[9px] xxs:text-xs sm:text-sm">{servicio.nombre}</td>
-                                                            <td className="px-0.5 xxs:px-2 sm:px-4 py-1 xxs:py-2 sm:py-3 border-b border-gray-100 text-gray-600 text-[9px] xxs:text-xs sm:text-sm hidden lg:table-cell">{servicio.numeroFactura}</td>
-                                                            {esDesdeMora && <td className="px-0.5 xxs:px-2 sm:px-4 py-1 xxs:py-2 sm:py-3 border-b border-gray-100 text-gray-600 text-[9px] xxs:text-xs sm:text-sm hidden xl:table-cell">{servicio.fechaGeneracionFormateada}</td>}
-                                                            <td className="px-0.5 xxs:px-2 sm:px-4 py-1 xxs:py-2 sm:py-3 border-b border-gray-100 font-semibold text-gray-900 text-[9px] xxs:text-xs sm:text-sm">{formatCurrency(servicio.monto)}</td>
-                                                            <td className="px-0.5 xxs:px-2 sm:px-4 py-1 xxs:py-2 sm:py-3 border-b border-gray-100 text-gray-600 text-[9px] xxs:text-xs hidden md:table-cell">{servicio.fechaVencimientoFormateada}</td>
+                                                            <td className="px-2 sm:px-4 py-2 sm:py-3 border-b border-gray-100 font-medium text-gray-900 text-xs sm:text-sm">{servicio.nombre}</td>
+                                                            <td className="px-2 sm:px-4 py-2 sm:py-3 border-b border-gray-100 text-gray-600 text-xs sm:text-sm hidden lg:table-cell">{servicio.numeroFactura}</td>
+                                                            {esDesdeMora && <td className="px-2 sm:px-4 py-2 sm:py-3 border-b border-gray-100 text-gray-600 text-xs sm:text-sm hidden xl:table-cell">{servicio.fechaGeneracionFormateada}</td>}
+                                                            <td className="px-2 sm:px-4 py-2 sm:py-3 border-b border-gray-100 font-semibold text-gray-900 text-xs sm:text-sm">{formatCurrency(servicio.monto)}</td>
+                                                            <td className="px-2 sm:px-4 py-2 sm:py-3 border-b border-gray-100 text-gray-600 text-xs sm:text-sm hidden md:table-cell">{servicio.fechaVencimientoFormateada}</td>
                                                             {(() => {
                                                                 // Usar el isPaid ya calculado
                                                                 const isPaidCell = servicio.isPaid;
@@ -906,14 +906,14 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
                                                                     // Usar el isPaid ya calculado
                                                                     const isPaid = servicio.isPaid;
                                                                     if (isPaid) {
-                                                                        return <span className="text-[8px] xxs:text-xs sm:text-sm 2xl:text-base px-1 xxs:px-2 sm:px-3 py-0.5 sm:py-1 rounded-full font-medium inline-flex items-center bg-green-50 text-green-700 border border-green-200">Pagado</span>;
+                                                                        return <span className="text-xs sm:text-sm px-2 sm:px-3 py-1 rounded-full font-medium inline-flex items-center bg-green-50 text-green-700 border border-green-200">Pagado</span>;
                                                                     }
                                                                     // Si no está pagado, determinar estado según días de vencimiento
                                                                     const displayedEstado = servicio.diasVencimiento < 0 ? 'En mora' : servicio.estado;
                                                                     const badgeClass = displayedEstado.toLowerCase().includes('mora') 
                                                                         ? 'bg-red-50 text-red-700 border border-red-200' 
                                                                         : 'bg-amber-50 text-amber-700 border border-amber-200';
-                                                                    return <span className={`text-[8px] xxs:text-xs sm:text-sm 2xl:text-base px-1 xxs:px-2 sm:px-3 py-0.5 sm:py-1 rounded-full font-medium inline-flex items-center ${badgeClass}`}>{displayedEstado}</span>;
+                                                                    return <span className={`text-xs sm:text-sm px-2 sm:px-3 py-1 rounded-full font-medium inline-flex items-center ${badgeClass}`}>{displayedEstado}</span>;
                                                                 })()}
                                                             </td>
 
@@ -922,8 +922,8 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
                                                             <td className="px-2 sm:px-4 py-2 sm:py-3 border-b border-gray-100 text-gray-600 text-xs sm:text-sm hidden xl:table-cell">{servicio.metodo_pago || servicio.metodoPago || '—'}</td>
                                                             <td className="px-2 sm:px-4 py-2 sm:py-3 border-b border-gray-100 text-gray-600 text-xs sm:text-sm hidden xl:table-cell">{servicio.referencia || '—'}</td>
 
-                                                            <td className="px-1 xxs:px-2 sm:px-4 py-1.5 xxs:py-2 sm:py-3 border-b border-gray-100 text-center">
-                                                                <div className="flex items-center justify-center gap-0.5 xxs:gap-1 sm:gap-2">
+                                                            <td className="px-2 sm:px-4 py-2 sm:py-3 border-b border-gray-100 text-center">
+                                                                <div className="flex items-center justify-center gap-1 sm:gap-2">
                                                                                         {(() => {
                                                                                             // Usar el isPaid ya calculado en el objeto procesado
                                                                                             const isPaid = servicio.isPaid;
@@ -985,8 +985,8 @@ export default function PageResidente({ residenteData, isFromMora = false }) {
                                         
                                         {/* Controles de Paginación */}
                                         {serviciosProcesados.length > itemsPerPage && (
-                                            <div className="flex flex-col sm:flex-row justify-between items-center mt-2 xxs:mt-3 sm:mt-4 px-1 xxs:px-2 sm:px-4 gap-2 xxs:gap-3">
-                                                <div className="text-xxs xxs:text-xs sm:text-sm text-gray-600 text-center">
+                                            <div className="flex flex-col sm:flex-row justify-between items-center mt-2 sm:mt-4 px-2 sm:px-4 gap-2 sm:gap-3">
+                                                <div className="text-xs sm:text-sm text-gray-600 text-center">
                                                     Mostrando {((currentPage - 1) * itemsPerPage) + 1} a {Math.min(currentPage * itemsPerPage, serviciosProcesados.length)} de {serviciosProcesados.length} servicios
                                                 </div>
                                                 <div className="flex flex-wrap gap-1 sm:gap-2 justify-center">

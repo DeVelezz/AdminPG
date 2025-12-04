@@ -847,7 +847,7 @@ export default function PageAdmin() {
                                         <input
                                             type="text"
                                             placeholder="Buscar..."
-                                            className="w-full px-1 xxs:px-2 sm:px-3 py-0.5 xxs:py-1.5 sm:py-2 text-[9px] xxs:text-xs sm:text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
                                         />
@@ -855,7 +855,7 @@ export default function PageAdmin() {
                                     
                                     <div className="w-full sm:w-40 md:w-48">
                                         <select
-                                            className="w-full px-1 xxs:px-2 sm:px-3 py-0.5 xxs:py-1.5 sm:py-2 text-[9px] xxs:text-xs sm:text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                                             value={filterStatus}
                                             onChange={(e) => setFilterStatus(e.target.value)}
                                         >
@@ -868,7 +868,7 @@ export default function PageAdmin() {
                                     
                                     <div className="w-full sm:w-40 md:w-48">
                                         <select
-                                            className="w-full px-1.5 xxs:px-2 sm:px-3 py-1 xxs:py-1.5 sm:py-2 text-xxs xxs:text-xs sm:text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                                             value={filterTower}
                                             onChange={(e) => setFilterTower(e.target.value)}
                                         >
@@ -901,7 +901,7 @@ export default function PageAdmin() {
                                 ) : (
                                     <div>
                                         <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
-                                            <table className="w-full bg-white text-[9px] xxs:text-xs sm:text-sm 2xl:text-base">
+                                            <table className="w-full bg-white text-xs sm:text-sm 2xl:text-base">
                                                 <thead className="bg-gray-50 border-b border-gray-200">
                                                     <tr>
                                                         <th className="px-4 py-3 text-left">
